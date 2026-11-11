@@ -124,13 +124,13 @@ export default function HomePage() {
               </div>
             </article>
           ))}
-          <div className="end-feed"><span /> YOU'RE RIGHT ON TIME <span /></div>
+          <div className="end-feed"><span /> YOU&apos;RE RIGHT ON TIME <span /></div>
         </section>
 
         <aside className="right-rail">
           <div className="welcome-card"><div className="welcome-orb">t.</div><span className="eyebrow">WELCOME TO TIVVA</span><h2>Your world.<br/>Your perspective.</h2><p>Discover voices, ideas and moments from everywhere.</p><button onClick={() => setShowSignup(true)}>Join the community <span>↗</span></button></div>
-          <div className="trending-card"><div className="rail-title">What's happening <span>↗</span></div><div className="trend"><small>01 · CULTURE</small><strong>#MadeOnTivva</strong><span>Discover new creators</span></div><div className="trend"><small>02 · COMMUNITY</small><strong>#AroundTheWorld</strong><span>Stories without borders</span></div><div className="trend"><small>03 · CREATIVITY</small><strong>#MyTivvaMoment</strong><span>Show us your view</span></div></div>
-          <div className="safety-note"><ShieldCheck size={17}/><div><strong>Creativity, with care.</strong><p>We're building a community where people can express themselves and feel respected.</p></div></div>
+          <div className="trending-card"><div className="rail-title">What&apos;s happening <span>↗</span></div><div className="trend"><small>01 · CULTURE</small><strong>#MadeOnTivva</strong><span>Discover new creators</span></div><div className="trend"><small>02 · COMMUNITY</small><strong>#AroundTheWorld</strong><span>Stories without borders</span></div><div className="trend"><small>03 · CREATIVITY</small><strong>#MyTivvaMoment</strong><span>Show us your view</span></div></div>
+          <div className="safety-note"><ShieldCheck size={17}/><div><strong>Creativity, with care.</strong><p>We&apos;re building a community where people can express themselves and feel respected.</p></div></div>
         </aside>
       </div>
 
