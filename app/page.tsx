@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { getSupabaseBrowserClient } from "../lib/supabase";
 import {
   Search, Home, Compass, PlusSquare, UserRound, Heart, MessageCircle,
   Share2, Bookmark, Play, Volume2, VolumeX, Menu, X, Sparkles,
@@ -55,6 +56,43 @@ export default function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+
+  const handleAuth = async () => {
+    setAuthMessage("");
+    if (!email.trim() || !password) {
+      setAuthMessage("Enter your email address and password.");
+      return;
+    }
+    if (password.length < 8) {
+      setAuthMessage("Your password must be at least 8 characters.");
+      return;
+    }
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setAuthMessage("Tivva connection is not configured yet. Please try again after setup.");
+      return;
+    }
+    setAuthBusy(true);
+    try {
+      if (showSignup) {
+        const { error } = await supabase.auth.signUp({ email: email.trim(), password });
+        if (error) throw error;
+        setAuthMessage("Account request received. Check your email for a confirmation link.");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        if (error) throw error;
+        setAuthMessage("You're signed in to Tivva.");
+      }
+    } catch (error) {
+      setAuthMessage(error instanceof Error ? error.message : "We couldn't complete that request. Please try again.");
+    } finally {
+      setAuthBusy(false);
+    }
+  };
 
   const toggle = (list: number[], id: number, setter: (value: number[]) => void) =>
     setter(list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
@@ -134,7 +172,7 @@ export default function HomePage() {
         </aside>
       </div>
 
-      {(showLogin || showSignup) && <div className="modal-backdrop" onClick={() => {setShowLogin(false);setShowSignup(false);}}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={() => {setShowLogin(false);setShowSignup(false);}}><X size={20}/></button><div className="modal-brand">t.</div><span className="eyebrow">YOUR NEXT CHAPTER STARTS HERE</span><h2>{showSignup ? "Join Tivva." : "Welcome back."}</h2><p>{showSignup ? "Create your account and find your people." : "Log in to continue your Tivva journey."}</p><label>Email address<input type="email" placeholder="you@example.com"/></label><label>Password<input type="password" placeholder="At least 8 characters"/></label><button className="modal-submit" onClick={() => alert("Account services are coming in the next development step.")}>{showSignup ? "Create account" : "Log in"}</button><p className="modal-switch">{showSignup ? "Already on Tivva?" : "New to Tivva?"} <button onClick={() => {setShowSignup(!showSignup);setShowLogin(!showLogin);}}>{showSignup ? "Log in" : "Create an account"}</button></p><small>Account creation and secure sign-in will be connected in the next setup stage.</small></section></div>}
+      {(showLogin || showSignup) && <div className="modal-backdrop" onClick={() => {setShowLogin(false);setShowSignup(false);}}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={() => {setShowLogin(false);setShowSignup(false);}}><X size={20}/></button><div className="modal-brand">t.</div><span className="eyebrow">YOUR NEXT CHAPTER STARTS HERE</span><h2>{showSignup ? "Join Tivva." : "Welcome back."}</h2><p>{showSignup ? "Create your account and find your people." : "Log in to continue your Tivva journey."}</p><label>Email address<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com"/></label><label>Password<input type="password" autoComplete={showSignup ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters"/></label>{authMessage && <p role="status" aria-live="polite">{authMessage}</p>}<button className="modal-submit" disabled={authBusy} onClick={handleAuth}>{authBusy ? "Please wait..." : showSignup ? "Create account" : "Log in"}</button><p className="modal-switch">{showSignup ? "Already on Tivva?" : "New to Tivva?"} <button onClick={() => {setShowSignup(!showSignup);setShowLogin(!showLogin);}}>{showSignup ? "Log in" : "Create an account"}</button></p><small>Keep your password private. Tivva uses secure Supabase authentication.</small></section></div>}
 
       <nav className="mobile-bottom"><button className="selected"><Home size={20}/>Home</button><button><Compass size={20}/>Discover</button><button onClick={() => setShowLogin(true)}><PlusSquare size={20}/>Upload</button><button onClick={() => setShowLogin(true)}><UserRound size={20}/>Profile</button></nav>
     </main>
