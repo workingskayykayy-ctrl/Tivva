@@ -65,16 +65,22 @@ export default function HomePage() {
   const [authMessage, setAuthMessage] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [profileEmail, setProfileEmail] = useState("");
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
     let mounted = true;
     supabase.auth.getSession().then(({ data }) => {
-      if (mounted) setSignedIn(Boolean(data.session));
+      if (mounted) {
+        setSignedIn(Boolean(data.session));
+        setProfileEmail(data.session?.user.email ?? "");
+      }
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSignedIn(Boolean(session));
+      setProfileEmail(session?.user.email ?? "");
     });
     return () => {
       mounted = false;
@@ -140,6 +146,7 @@ export default function HomePage() {
           if (error) throw error;
           if (!data.session) throw new Error("Tivva could not establish your login session. Please try again.");
           setSignedIn(true);
+          setProfileEmail(data.session.user.email ?? email.trim());
           setShowLogin(false);
           setShowSignup(false);
           setAuthMessage("You're signed in to Tivva.");
@@ -174,7 +181,7 @@ export default function HomePage() {
             <button className="nav-item"><Compass size={20} /> Discover</button>
             <button className="nav-item" onClick={() => setShowLogin(true)}><PlusSquare size={20} /> Upload video</button>
             <button className="nav-item" onClick={() => setShowLogin(true)}><MessageCircle size={20} /> Inbox</button>
-            <button className="nav-item" onClick={() => setShowLogin(true)}><UserRound size={20} /> Profile</button>
+            <button className="nav-item" onClick={() => signedIn ? setShowProfile(true) : setShowLogin(true)}><UserRound size={20} /> Profile</button>
           </nav>
           <div className="sidebar-divider" />
           <p className="side-label">Your world starts here</p>
@@ -185,7 +192,7 @@ export default function HomePage() {
         </aside>
 
         <section className="feed-column">
-          <div className="feed-heading">
+          {showProfile && signedIn ? <div className="feed-heading"><div><span className="eyebrow">YOUR TIVVA ACCOUNT</span><h1>Your profile.</h1><p>{profileEmail || "Signed-in account"}</p></div><button className="following-select" onClick={() => setShowProfile(false)}>Back to feed</button></div> : <><div className="feed-heading">
             <div><span className="eyebrow"><Sparkles size={13} /> YOUR DAILY DOSE OF DISCOVERY</span><h1>Find your <span>moment.</span></h1></div>
             <button className="following-select" onClick={() => setActiveTab(activeTab === "For You" ? "Following" : "For You")}>{activeTab}<ChevronDown size={15}/></button>
           </div>
@@ -219,7 +226,7 @@ export default function HomePage() {
               </div>
             </article>
           ))}
-          <div className="end-feed"><span /> YOU&apos;RE RIGHT ON TIME <span /></div>
+          <div className="end-feed"><span /> YOU&apos;RE RIGHT ON TIME <span /></div></>}
         </section>
 
         <aside className="right-rail">
@@ -231,7 +238,7 @@ export default function HomePage() {
 
       {(showLogin || showSignup) && <div className="modal-backdrop" onClick={() => {setShowLogin(false);setShowSignup(false);}}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={() => {setShowLogin(false);setShowSignup(false);}}><X size={20}/></button><div className="modal-brand">t.</div><span className="eyebrow">YOUR NEXT CHAPTER STARTS HERE</span><h2>{showSignup ? "Join Tivva." : "Welcome back."}</h2><p>{showSignup ? "Create your account and find your people." : "Log in to continue your Tivva journey."}</p><div className="auth-methods"><button type="button" className={authMethod === "email" ? "auth-method active" : "auth-method"} onClick={() => {setAuthMethod("email");setPhoneStep("details");setAuthMessage("");}}>Email</button><button type="button" className={authMethod === "phone" ? "auth-method active" : "auth-method"} onClick={() => {setAuthMethod("phone");setPhoneStep("details");setAuthMessage("");}}>Phone</button></div>{authMethod === "email" ? <label>Email address<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com"/></label> : <><label>Phone number<input type="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+2348012345678"/></label>{showSignup && phoneStep === "code" && <label>SMS verification code<input inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={(event) => setOtp(event.target.value)} placeholder="Enter the code sent to your phone"/></label>}</>}<label>Password<input type="password" autoComplete={showSignup ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters"/></label>{authMessage && <p role="status" aria-live="polite">{authMessage}</p>}<button className="modal-submit" disabled={authBusy} onClick={handleAuth}>{authBusy ? "Please wait..." : showSignup && authMethod === "phone" && phoneStep === "details" ? "Send verification code" : showSignup ? authMethod === "phone" ? "Verify & create account" : "Create account" : "Log in"}</button><p className="modal-switch">{showSignup ? "Already on Tivva?" : "New to Tivva?"} <button onClick={() => {setShowSignup(!showSignup);setShowLogin(!showLogin);}}>{showSignup ? "Log in" : "Create an account"}</button></p><small>Keep your password private. Tivva uses secure Supabase authentication.</small></section></div>}
 
-      <nav className="mobile-bottom"><button className="selected"><Home size={20}/>Home</button><button><Compass size={20}/>Discover</button><button onClick={() => setShowLogin(true)}><PlusSquare size={20}/>Upload</button><button onClick={() => setShowLogin(true)}><UserRound size={20}/>Profile</button></nav>
+      <nav className="mobile-bottom"><button className="selected"><Home size={20}/>Home</button><button><Compass size={20}/>Discover</button><button onClick={() => setShowLogin(true)}><PlusSquare size={20}/>Upload</button><button onClick={() => signedIn ? setShowProfile(true) : setShowLogin(true)}><UserRound size={20}/>Profile</button></nav>
     </main>
   );
 }
