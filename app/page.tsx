@@ -67,6 +67,12 @@ export default function HomePage() {
   const [signedIn, setSignedIn] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [profileEmail, setProfileEmail] = useState("");
+  const [profileName, setProfileName] = useState("");
+  const [profileUsername, setProfileUsername] = useState("");
+  const [profileBio, setProfileBio] = useState("");
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
+  const [profileMessage, setProfileMessage] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -76,11 +82,21 @@ export default function HomePage() {
       if (mounted) {
         setSignedIn(Boolean(data.session));
         setProfileEmail(data.session?.user.email ?? "");
+        const metadata = data.session?.user.user_metadata ?? {};
+        setProfileName(metadata.display_name ?? "");
+        setProfileUsername(metadata.username ?? "");
+        setProfileBio(metadata.bio ?? "");
+        setProfilePhotoUrl(metadata.avatar_url ?? "");
       }
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSignedIn(Boolean(session));
       setProfileEmail(session?.user.email ?? "");
+      const metadata = session?.user.user_metadata ?? {};
+      setProfileName(metadata.display_name ?? "");
+      setProfileUsername(metadata.username ?? "");
+      setProfileBio(metadata.bio ?? "");
+      setProfilePhotoUrl(metadata.avatar_url ?? "");
     });
     return () => {
       mounted = false;
@@ -159,6 +175,40 @@ export default function HomePage() {
     }
   };
 
+  const saveProfile = async () => {
+    setProfileMessage("");
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setProfileMessage("Tivva connection is not available. Please refresh and try again.");
+      return;
+    }
+    const cleanUsername = profileUsername.trim().replace(/^@/, "").toLowerCase();
+    if (cleanUsername && !/^[a-z0-9_.]{3,24}$/.test(cleanUsername)) {
+      setProfileMessage("Username must be 3–24 characters and use only letters, numbers, dots or underscores.");
+      return;
+    }
+    if (profilePhotoUrl.trim() && !/^https:\/\//i.test(profilePhotoUrl.trim())) {
+      setProfileMessage("Please use a photo link beginning with https://.");
+      return;
+    }
+    setProfileSaving(true);
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        display_name: profileName.trim(),
+        username: cleanUsername,
+        bio: profileBio.trim(),
+        avatar_url: profilePhotoUrl.trim()
+      }
+    });
+    setProfileSaving(false);
+    if (error) {
+      setProfileMessage(error.message);
+      return;
+    }
+    setProfileUsername(cleanUsername);
+    setProfileMessage("Your profile has been saved.");
+  };
+
   const toggle = (list: number[], id: number, setter: (value: number[]) => void) =>
     setter(list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
 
@@ -192,7 +242,20 @@ export default function HomePage() {
         </aside>
 
         <section className="feed-column">
-          {showProfile && signedIn ? <div className="feed-heading"><div><span className="eyebrow">YOUR TIVVA ACCOUNT</span><h1>Your profile.</h1><p>{profileEmail || "Signed-in account"}</p></div><button className="following-select" onClick={() => setShowProfile(false)}>Back to feed</button></div> : <><div className="feed-heading">
+          {showProfile && signedIn ? <div className="profile-page">
+            <div className="profile-topline"><div><span className="eyebrow">YOUR TIVVA ACCOUNT</span><h1>Your profile.</h1><p className="profile-email">{profileEmail || "Signed-in account"}</p></div><button className="following-select" onClick={() => setShowProfile(false)}>Back to feed</button></div>
+            <div className="profile-editor">
+              <div className="profile-avatar-preview">{profilePhotoUrl ? <img src={profilePhotoUrl} alt="Your profile" /> : <UserRound size={34} />}</div>
+              <p className="profile-hint">Add a photo link and tell the Tivva community about yourself.</p>
+              <label>Display name<input value={profileName} onChange={(event) => setProfileName(event.target.value)} maxLength={50} placeholder="Your name" /></label>
+              <label>Username<input value={profileUsername} onChange={(event) => setProfileUsername(event.target.value)} maxLength={24} placeholder="yourusername" /></label>
+              <label>Bio<textarea value={profileBio} onChange={(event) => setProfileBio(event.target.value)} maxLength={160} rows={4} placeholder="A little about you..." /></label>
+              <label>Profile photo link<input type="url" value={profilePhotoUrl} onChange={(event) => setProfilePhotoUrl(event.target.value)} placeholder="https://..." /></label>
+              <div className="profile-count">{profileBio.length}/160 characters</div>
+              {profileMessage && <p className="profile-message" role="status">{profileMessage}</p>}
+              <button className="profile-save" onClick={saveProfile} disabled={profileSaving}>{profileSaving ? "Saving..." : "Save profile"}</button>
+            </div>
+          </div> : <><div className="feed-heading">
             <div><span className="eyebrow"><Sparkles size={13} /> YOUR DAILY DOSE OF DISCOVERY</span><h1>Find your <span>moment.</span></h1></div>
             <button className="following-select" onClick={() => setActiveTab(activeTab === "For You" ? "Following" : "For You")}>{activeTab}<ChevronDown size={15}/></button>
           </div>
