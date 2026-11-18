@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "../lib/supabase";
 import {
   Search, Home, Compass, PlusSquare, UserRound, Heart, MessageCircle,
@@ -64,6 +64,23 @@ export default function HomePage() {
   const [phoneStep, setPhoneStep] = useState<"details" | "code">("details");
   const [authMessage, setAuthMessage] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    let mounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted) setSignedIn(Boolean(data.session));
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSignedIn(Boolean(session));
+    });
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const handleAuth = async () => {
     setAuthMessage("");
@@ -103,10 +120,14 @@ export default function HomePage() {
           const { error } = await supabase.auth.signInWithPassword({ phone: phone.trim(), password });
           if (error) throw error;
           setAuthMessage("Your phone is verified. Welcome to Tivva!");
+          setShowLogin(false);
+          setShowSignup(false);
         } else {
           const { error } = await supabase.auth.signInWithPassword({ phone: phone.trim(), password });
           if (error) throw error;
           setAuthMessage("You're signed in to Tivva.");
+          setShowLogin(false);
+          setShowSignup(false);
         }
       } else {
         if (!email.trim()) throw new Error("Enter your email address.");
@@ -137,8 +158,7 @@ export default function HomePage() {
         <div className="search-box"><Search size={17} /><input aria-label="Search Tivva" placeholder="Search creators, videos and sounds" /></div>
         <div className="top-actions">
           <button className="upload-button" onClick={() => setShowLogin(true)}><PlusSquare size={17} /> Upload</button>
-          <button className="login-button" onClick={() => setShowLogin(true)}>Log in</button>
-          <button className="signup-button" onClick={() => setShowSignup(true)}>Sign up</button>
+          {signedIn ? <span className="login-button" aria-live="polite">Signed in</span> : <><button className="login-button" onClick={() => setShowLogin(true)}>Log in</button><button className="signup-button" onClick={() => setShowSignup(true)}>Sign up</button></>}
           <button className="mobile-menu" aria-label="Open menu" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X /> : <Menu />}</button>
         </div>
       </header>
