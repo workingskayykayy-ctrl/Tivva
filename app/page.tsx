@@ -58,15 +58,15 @@ export default function HomePage() {
   const [showSignup, setShowSignup] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [authMethod, setAuthMethod] = useState<"email" | "phone">("email");
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [phoneStep, setPhoneStep] = useState<"details" | "code">("details");
   const [authMessage, setAuthMessage] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
 
   const handleAuth = async () => {
     setAuthMessage("");
-    if (!email.trim() || !password) {
-      setAuthMessage("Enter your email address and password.");
-      return;
-    }
     if (password.length < 8) {
       setAuthMessage("Your password must be at least 8 characters.");
       return;
@@ -78,14 +78,47 @@ export default function HomePage() {
     }
     setAuthBusy(true);
     try {
-      if (showSignup) {
-        const { error } = await supabase.auth.signUp({ email: email.trim(), password });
-        if (error) throw error;
-        setAuthMessage("Account request received. Check your email for a confirmation link.");
+      if (authMethod === "phone") {
+        if (!/^\\+[1-9]\\d{7,14}$/.test(phone.trim())) {
+          throw new Error("Enter your phone number with country code, for example +2348012345678.");
+        }
+        if (showSignup) {
+          if (phoneStep === "details") {
+            const response = await fetch("/api/phone/send", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ phone: phone.trim() })
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Could not send your code.");
+            setPhoneStep("code");
+            setAuthMessage("We sent an SMS code. Enter it below to verify your number.");
+            return;
+          }
+          const response = await fetch("/api/phone/verify", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phone: phone.trim(), code: otp.trim(), password })
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Phone verification failed.");
+          const { error } = await supabase.auth.signInWithPassword({ phone: phone.trim(), password });
+          if (error) throw error;
+          setAuthMessage("Your phone is verified. Welcome to Tivva!");
+        } else {
+          const { error } = await supabase.auth.signInWithPassword({ phone: phone.trim(), password });
+          if (error) throw error;
+          setAuthMessage("You're signed in to Tivva.");
+        }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-        if (error) throw error;
-        setAuthMessage("You're signed in to Tivva.");
+        if (!email.trim()) throw new Error("Enter your email address.");
+        if (showSignup) {
+          const { error } = await supabase.auth.signUp({ email: email.trim(), password });
+          if (error) throw error;
+          setAuthMessage("Account request received. Check your email for a confirmation link.");
+        } else {
+          const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+          if (error) throw error;
+          setAuthMessage("You're signed in to Tivva.");
+        }
       }
     } catch (error) {
       setAuthMessage(error instanceof Error ? error.message : "We couldn't complete that request. Please try again.");
@@ -172,7 +205,7 @@ export default function HomePage() {
         </aside>
       </div>
 
-      {(showLogin || showSignup) && <div className="modal-backdrop" onClick={() => {setShowLogin(false);setShowSignup(false);}}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={() => {setShowLogin(false);setShowSignup(false);}}><X size={20}/></button><div className="modal-brand">t.</div><span className="eyebrow">YOUR NEXT CHAPTER STARTS HERE</span><h2>{showSignup ? "Join Tivva." : "Welcome back."}</h2><p>{showSignup ? "Create your account and find your people." : "Log in to continue your Tivva journey."}</p><label>Email address<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com"/></label><label>Password<input type="password" autoComplete={showSignup ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters"/></label>{authMessage && <p role="status" aria-live="polite">{authMessage}</p>}<button className="modal-submit" disabled={authBusy} onClick={handleAuth}>{authBusy ? "Please wait..." : showSignup ? "Create account" : "Log in"}</button><p className="modal-switch">{showSignup ? "Already on Tivva?" : "New to Tivva?"} <button onClick={() => {setShowSignup(!showSignup);setShowLogin(!showLogin);}}>{showSignup ? "Log in" : "Create an account"}</button></p><small>Keep your password private. Tivva uses secure Supabase authentication.</small></section></div>}
+      {(showLogin || showSignup) && <div className="modal-backdrop" onClick={() => {setShowLogin(false);setShowSignup(false);}}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={() => {setShowLogin(false);setShowSignup(false);}}><X size={20}/></button><div className="modal-brand">t.</div><span className="eyebrow">YOUR NEXT CHAPTER STARTS HERE</span><h2>{showSignup ? "Join Tivva." : "Welcome back."}</h2><p>{showSignup ? "Create your account and find your people." : "Log in to continue your Tivva journey."}</p><div className="auth-methods"><button type="button" className={authMethod === "email" ? "auth-method active" : "auth-method"} onClick={() => {setAuthMethod("email");setPhoneStep("details");setAuthMessage("");}}>Email</button><button type="button" className={authMethod === "phone" ? "auth-method active" : "auth-method"} onClick={() => {setAuthMethod("phone");setPhoneStep("details");setAuthMessage("");}}>Phone</button></div>{authMethod === "email" ? <label>Email address<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com"/></label> : <><label>Phone number<input type="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+2348012345678"/></label>{showSignup && phoneStep === "code" && <label>SMS verification code<input inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={(event) => setOtp(event.target.value)} placeholder="Enter the code sent to your phone"/></label>}</>}<label>Password<input type="password" autoComplete={showSignup ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters"/></label>{authMessage && <p role="status" aria-live="polite">{authMessage}</p>}<button className="modal-submit" disabled={authBusy} onClick={handleAuth}>{authBusy ? "Please wait..." : showSignup && authMethod === "phone" && phoneStep === "details" ? "Send verification code" : showSignup ? authMethod === "phone" ? "Verify & create account" : "Create account" : "Log in"}</button><p className="modal-switch">{showSignup ? "Already on Tivva?" : "New to Tivva?"} <button onClick={() => {setShowSignup(!showSignup);setShowLogin(!showLogin);}}>{showSignup ? "Log in" : "Create an account"}</button></p><small>Keep your password private. Tivva uses secure Supabase authentication.</small></section></div>}
 
       <nav className="mobile-bottom"><button className="selected"><Home size={20}/>Home</button><button><Compass size={20}/>Discover</button><button onClick={() => setShowLogin(true)}><PlusSquare size={20}/>Upload</button><button onClick={() => setShowLogin(true)}><UserRound size={20}/>Profile</button></nav>
     </main>
