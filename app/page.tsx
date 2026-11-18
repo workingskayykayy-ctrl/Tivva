@@ -136,8 +136,12 @@ export default function HomePage() {
           if (error) throw error;
           setAuthMessage("Account request received. Check your email for a confirmation link.");
         } else {
-          const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+          const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
           if (error) throw error;
+          if (!data.session) throw new Error("Tivva could not establish your login session. Please try again.");
+          setSignedIn(true);
+          setShowLogin(false);
+          setShowSignup(false);
           setAuthMessage("You're signed in to Tivva.");
         }
       }
