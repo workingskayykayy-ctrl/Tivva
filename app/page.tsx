@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 
 type TivvaClip = {
-  id: number;
+  id: number | string;
   creator: string;
   name: string;
   caption: string;
@@ -124,6 +124,35 @@ export default function HomePage() {
       mounted = false;
       subscription.unsubscribe();
     };
+  }, []);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    let active = true;
+    const loadVideoPosts = async () => {
+      const { data, error } = await supabase
+        .from("video_posts")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (!active || error || !data) return;
+      setUploadedClips(data.map((post) => ({
+        id: post.id,
+        creator: post.creator_username || "tivva.creator",
+        name: post.creator_name || "Tivva Creator",
+        caption: post.caption || "",
+        tags: post.tags || "#Tivva #MyTivvaMoment",
+        likes: "0",
+        comments: "0",
+        color: "sunset",
+        initials: post.creator_initials || "TC",
+        sound: "Original sound",
+        videoUrl: post.video_url,
+        uploadedBy: post.user_id
+      })));
+    };
+    void loadVideoPosts();
+    return () => { active = false; };
   }, []);
 
   const handleAuth = async () => {
@@ -283,13 +312,26 @@ export default function HomePage() {
       if (error) throw error;
       const { data } = supabase.storage.from("tivva-videos").getPublicUrl(path);
       const meta = user.user_metadata ?? {};
-      const newClip = {
+      const newClip: TivvaClip = {
         id: Date.now(), creator: meta.username || user.email?.split("@")[0] || "tivva.creator",
         name: meta.display_name || "Tivva Creator", caption: videoCaption.trim() || "My moment on Tivva ✨",
         tags: "#Tivva #MyTivvaMoment", likes: "0", comments: "0", color: "sunset",
         initials: (meta.display_name || "TC").slice(0, 2).toUpperCase(),
         sound: "Original sound", videoUrl: data.publicUrl, uploadedBy: user.id
       };
+      const { error: postError } = await supabase.from("video_posts").insert({
+        user_id: user.id,
+        video_url: data.publicUrl,
+        caption: newClip.caption,
+        creator_username: newClip.creator,
+        creator_name: newClip.name,
+        creator_initials: newClip.initials,
+        tags: newClip.tags
+      });
+      if (postError) {
+        await supabase.storage.from("tivva-videos").remove([path]);
+        throw postError;
+      }
       setUploadedClips((prev) => [newClip, ...prev]);
       setVideoMessage("Your video is uploaded and added to this feed!");
       setVideoFile(null); setVideoCaption(""); setShowVideoUpload(false);
