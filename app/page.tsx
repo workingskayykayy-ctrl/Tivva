@@ -73,6 +73,7 @@ export default function HomePage() {
   const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
   const [profileSaving, setProfileSaving] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -218,6 +219,30 @@ export default function HomePage() {
     }
   };
 
+  const uploadProfilePhoto = async (file: File) => {
+    setProfileMessage("");
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) { setProfileMessage("Tivva connection is not available. Refresh and try again."); return; }
+    if (!file.type.startsWith("image/")) { setProfileMessage("Choose an image file."); return; }
+    if (file.size > 5 * 1024 * 1024) { setProfileMessage("Photo must be 5 MB or smaller."); return; }
+    setPhotoUploading(true);
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("Please log in again before uploading your photo.");
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `${user.id}/profile-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from("profile-photos").upload(path, file, { upsert: true, contentType: file.type });
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from("profile-photos").getPublicUrl(path);
+      setProfilePhotoUrl(data.publicUrl);
+      setProfileMessage("Photo uploaded. Tap Save profile to keep it.");
+    } catch (error) {
+      setProfileMessage(error instanceof Error ? error.message : "Photo upload failed. Please try again.");
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
   const toggle = (list: number[], id: number, setter: (value: number[]) => void) =>
     setter(list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
 
@@ -255,11 +280,11 @@ export default function HomePage() {
             <div className="profile-topline"><div><span className="eyebrow">YOUR TIVVA ACCOUNT</span><h1>Your profile.</h1><p className="profile-email">{profileEmail || "Signed-in account"}</p></div><button className="following-select" onClick={() => setShowProfile(false)}>Back to feed</button></div>
             <div className="profile-editor">
               <div className="profile-avatar-preview">{profilePhotoUrl ? <img src={profilePhotoUrl} alt="Your profile" /> : <UserRound size={34} />}</div>
-              <p className="profile-hint">Add a photo link and tell the Tivva community about yourself.</p>
+              <p className="profile-hint">Upload a photo from your phone and tell the Tivva community about yourself.</p><label className="photo-upload-label"><span>{photoUploading ? "Uploading photo..." : "Choose photo from gallery"}</span><input type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadProfilePhoto(file); event.currentTarget.value = ""; }} disabled={photoUploading} /></label>
               <label>Display name<input value={profileName} onChange={(event) => setProfileName(event.target.value)} maxLength={50} placeholder="Your name" /></label>
               <label>Username<input value={profileUsername} onChange={(event) => setProfileUsername(event.target.value)} maxLength={24} placeholder="yourusername" /></label>
               <label>Bio<textarea value={profileBio} onChange={(event) => setProfileBio(event.target.value)} maxLength={160} rows={4} placeholder="A little about you..." /></label>
-              <label>Profile photo link<input type="url" value={profilePhotoUrl} onChange={(event) => setProfilePhotoUrl(event.target.value)} placeholder="https://..." /></label>
+              <label>Profile photo link (optional)<input type="url" value={profilePhotoUrl} onChange={(event) => setProfilePhotoUrl(event.target.value)} placeholder="https://..." /></label>
               <div className="profile-count">{profileBio.length}/160 characters</div>
               {profileMessage && <p className="profile-message" role="status">{profileMessage}</p>}
               <button className="profile-save" onClick={saveProfile} disabled={profileSaving}>{profileSaving ? "Saving..." : "Save profile"}</button>
