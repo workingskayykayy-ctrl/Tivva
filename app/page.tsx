@@ -64,8 +64,8 @@ const clips: TivvaClip[] = [
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState("For You");
-  const [liked, setLiked] = useState<number[]>([]);
-  const [saved, setSaved] = useState<number[]>([]);
+  const [liked, setLiked] = useState<(number | string)[]>([]);
+  const [saved, setSaved] = useState<(number | string)[]>([]);
   const [following, setFollowing] = useState<string[]>([]);
   const [muted, setMuted] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -340,7 +340,7 @@ export default function HomePage() {
     } finally { setVideoUploading(false); }
   };
 
-  const toggle = (list: number[], id: number, setter: (value: number[]) => void) =>
+  const toggle = (list: (number | string)[], id: number | string, setter: (value: (number | string)[]) => void) =>
     setter(list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
 
   return (
