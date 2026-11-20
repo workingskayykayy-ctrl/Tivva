@@ -192,21 +192,30 @@ export default function HomePage() {
       return;
     }
     setProfileSaving(true);
-    const { error } = await supabase.auth.updateUser({
-      data: {
-        display_name: profileName.trim(),
-        username: cleanUsername,
-        bio: profileBio.trim(),
-        avatar_url: profilePhotoUrl.trim()
+    try {
+      const updatePromise = supabase.auth.updateUser({
+        data: {
+          display_name: profileName.trim(),
+          username: cleanUsername,
+          bio: profileBio.trim(),
+          avatar_url: profilePhotoUrl.trim()
+        }
+      });
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        window.setTimeout(() => reject(new Error("Saving is taking too long. Please check your connection and try again.")), 20000);
+      });
+      const { error } = await Promise.race([updatePromise, timeoutPromise]);
+      if (error) {
+        setProfileMessage(error.message);
+        return;
       }
-    });
-    setProfileSaving(false);
-    if (error) {
-      setProfileMessage(error.message);
-      return;
+      setProfileUsername(cleanUsername);
+      setProfileMessage("Your profile has been saved.");
+    } catch (error) {
+      setProfileMessage(error instanceof Error ? error.message : "We couldn't save your profile. Please try again.");
+    } finally {
+      setProfileSaving(false);
     }
-    setProfileUsername(cleanUsername);
-    setProfileMessage("Your profile has been saved.");
   };
 
   const toggle = (list: number[], id: number, setter: (value: number[]) => void) =>
