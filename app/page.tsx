@@ -5,7 +5,7 @@ import { getSupabaseBrowserClient } from "../lib/supabase";
 import {
   Search, Home, Compass, PlusSquare, UserRound, Heart, MessageCircle,
   Share2, Bookmark, Play, Volume2, VolumeX, Menu, X, Sparkles,
-  ChevronDown, ShieldCheck, Video
+  ChevronDown, ShieldCheck, Video, Upload, Film
 } from "lucide-react";
 
 const clips = [
@@ -74,6 +74,12 @@ export default function HomePage() {
   const [profileMessage, setProfileMessage] = useState("");
   const [profileSaving, setProfileSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [showVideoUpload, setShowVideoUpload] = useState(false);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoCaption, setVideoCaption] = useState("");
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoMessage, setVideoMessage] = useState("");
+  const [uploadedClips, setUploadedClips] = useState<any[]>([]);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -243,6 +249,40 @@ export default function HomePage() {
     }
   };
 
+
+  const uploadVideo = async () => {
+    setVideoMessage("");
+    if (!videoFile) { setVideoMessage("Choose a video from your gallery first."); return; }
+    if (!signedIn) { setVideoMessage("Please log in before uploading."); return; }
+    if (!videoFile.type.startsWith("video/")) { setVideoMessage("Choose a video file."); return; }
+    if (videoFile.size > 50 * 1024 * 1024) { setVideoMessage("Video must be 50 MB or smaller for this first version."); return; }
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) { setVideoMessage("Tivva connection is unavailable. Refresh and try again."); return; }
+    setVideoUploading(true);
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("Please log in again before uploading.");
+      const ext = videoFile.name.split(".").pop()?.toLowerCase() || "mp4";
+      const path = `${user.id}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("tivva-videos").upload(path, videoFile, { contentType: videoFile.type, upsert: false });
+      if (error) throw error;
+      const { data } = supabase.storage.from("tivva-videos").getPublicUrl(path);
+      const meta = user.user_metadata ?? {};
+      const newClip = {
+        id: Date.now(), creator: meta.username || user.email?.split("@")[0] || "tivva.creator",
+        name: meta.display_name || "Tivva Creator", caption: videoCaption.trim() || "My moment on Tivva ✨",
+        tags: "#Tivva #MyTivvaMoment", likes: "0", comments: "0", color: "sunset",
+        initials: (meta.display_name || "TC").slice(0, 2).toUpperCase(),
+        sound: "Original sound", videoUrl: data.publicUrl, uploadedBy: user.id
+      };
+      setUploadedClips((prev) => [newClip, ...prev]);
+      setVideoMessage("Your video is uploaded and added to this feed!");
+      setVideoFile(null); setVideoCaption(""); setShowVideoUpload(false);
+    } catch (error) {
+      setVideoMessage(error instanceof Error ? error.message : "Video upload failed. Please try again.");
+    } finally { setVideoUploading(false); }
+  };
+
   const toggle = (list: number[], id: number, setter: (value: number[]) => void) =>
     setter(list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
 
@@ -252,7 +292,7 @@ export default function HomePage() {
         <a className="brand" href="#" aria-label="Tivva home"><span className="brand-mark">t</span><span>tivva</span><i>.</i></a>
         <div className="search-box"><Search size={17} /><input aria-label="Search Tivva" placeholder="Search creators, videos and sounds" /></div>
         <div className="top-actions">
-          <button className="upload-button" onClick={() => setShowLogin(true)}><PlusSquare size={17} /> Upload</button>
+          <button className="upload-button" onClick={() => signedIn ? setShowVideoUpload(true) : setShowLogin(true)}><PlusSquare size={17} /> Upload</button>
           {signedIn ? <span className="login-button" aria-live="polite">Signed in</span> : <><button className="login-button" onClick={() => setShowLogin(true)}>Log in</button><button className="signup-button" onClick={() => setShowSignup(true)}>Sign up</button></>}
           <button className="mobile-menu" aria-label="Open menu" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X /> : <Menu />}</button>
         </div>
@@ -263,7 +303,7 @@ export default function HomePage() {
           <nav className="main-nav">
             <button className="nav-item active"><Home size={20} /> For You</button>
             <button className="nav-item"><Compass size={20} /> Discover</button>
-            <button className="nav-item" onClick={() => setShowLogin(true)}><PlusSquare size={20} /> Upload video</button>
+            <button className="nav-item" onClick={() => signedIn ? setShowVideoUpload(true) : setShowLogin(true)}><PlusSquare size={20} /> Upload video</button>
             <button className="nav-item" onClick={() => setShowLogin(true)}><MessageCircle size={20} /> Inbox</button>
             <button className="nav-item" onClick={() => signedIn ? setShowProfile(true) : setShowLogin(true)}><UserRound size={20} /> Profile</button>
           </nav>
@@ -297,10 +337,10 @@ export default function HomePage() {
             {["For You", "Following", "Trending"].map((tab) => <button key={tab} className={activeTab === tab ? "tab active-tab" : "tab"} onClick={() => setActiveTab(tab)}>{tab}</button>)}
           </div>
 
-          {clips.map((clip, index) => (
+          {[...uploadedClips, ...clips].map((clip: any, index) => (
             <article className="video-card" key={clip.id}>
               <div className={`video-stage ${clip.color}`}>
-                <div className="stage-glow" />
+                {clip.videoUrl ? <video className="uploaded-video" src={clip.videoUrl} controls playsInline /> : <><div className="stage-glow" />
                 <div className="stage-content">
                   <span className="stage-kicker">TIVVA ORIGINALS</span>
                   <div className="stage-art">{index === 0 ? "MOMENTS" : index === 1 ? "TASTE IT." : "GO FURTHER."}</div>
@@ -308,7 +348,7 @@ export default function HomePage() {
                   <div className="play-disc"><Play size={22} fill="currentColor" /></div>
                 </div>
                 <span className="preview-label"><Video size={12}/> VIDEO PREVIEW</span>
-                <button className="sound-toggle" aria-label={muted ? "Unmute preview" : "Mute preview"} onClick={() => setMuted(!muted)}>{muted ? <VolumeX size={17}/> : <Volume2 size={17}/>}</button>
+                <button className="sound-toggle" aria-label={muted ? "Unmute preview" : "Mute preview"} onClick={() => setMuted(!muted)}>{muted ? <VolumeX size={17}/> : <Volume2 size={17}/>}</button></>}
               </div>
               <div className="video-details">
                 <div className="creator-row"><div className="avatar">{clip.initials}</div><div className="creator-meta"><strong>{clip.name}</strong><span>@{clip.creator}</span></div><button className={following.includes(clip.creator) ? "follow-button is-following" : "follow-button"} onClick={() => setFollowing(following.includes(clip.creator) ? following.filter(x => x !== clip.creator) : [...following, clip.creator])}>{following.includes(clip.creator) ? "Following" : "Follow"}</button></div>
@@ -333,9 +373,11 @@ export default function HomePage() {
         </aside>
       </div>
 
+
+      {showVideoUpload && <div className="modal-backdrop" onClick={() => { if (!videoUploading) setShowVideoUpload(false); }}><section className="auth-modal video-upload-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={() => { if (!videoUploading) setShowVideoUpload(false); }}><X size={20}/></button><div className="modal-brand"><Film size={26}/></div><span className="eyebrow">SHARE YOUR MOMENT</span><h2>Upload a video.</h2><p>Select a video from your phone gallery and share it with Tivva.</p><label className="video-file-picker"><Upload size={19}/><span>{videoFile ? videoFile.name : "Choose video from gallery"}</span><input type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files?.[0] || null)}/></label>{videoFile && <video className="video-upload-preview" src={URL.createObjectURL(videoFile)} controls playsInline /> }<label>Caption<textarea className="video-caption-input" value={videoCaption} onChange={(e) => setVideoCaption(e.target.value)} maxLength={220} placeholder="What's happening in your video?" rows={3}/></label><small className="upload-limit">Video limit: 50 MB. Please upload a video you own or have permission to share.</small>{videoMessage && <p role="status">{videoMessage}</p>}<button className="modal-submit" disabled={videoUploading} onClick={uploadVideo}>{videoUploading ? "Uploading video..." : "Post video"}</button></section></div>}
       {(showLogin || showSignup) && <div className="modal-backdrop" onClick={() => {setShowLogin(false);setShowSignup(false);}}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={() => {setShowLogin(false);setShowSignup(false);}}><X size={20}/></button><div className="modal-brand">t.</div><span className="eyebrow">YOUR NEXT CHAPTER STARTS HERE</span><h2>{showSignup ? "Join Tivva." : "Welcome back."}</h2><p>{showSignup ? "Create your account and find your people." : "Log in to continue your Tivva journey."}</p><div className="auth-methods"><button type="button" className={authMethod === "email" ? "auth-method active" : "auth-method"} onClick={() => {setAuthMethod("email");setPhoneStep("details");setAuthMessage("");}}>Email</button><button type="button" className={authMethod === "phone" ? "auth-method active" : "auth-method"} onClick={() => {setAuthMethod("phone");setPhoneStep("details");setAuthMessage("");}}>Phone</button></div>{authMethod === "email" ? <label>Email address<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com"/></label> : <><label>Phone number<input type="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+2348012345678"/></label>{showSignup && phoneStep === "code" && <label>SMS verification code<input inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={(event) => setOtp(event.target.value)} placeholder="Enter the code sent to your phone"/></label>}</>}<label>Password<input type="password" autoComplete={showSignup ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters"/></label>{authMessage && <p role="status" aria-live="polite">{authMessage}</p>}<button className="modal-submit" disabled={authBusy} onClick={handleAuth}>{authBusy ? "Please wait..." : showSignup && authMethod === "phone" && phoneStep === "details" ? "Send verification code" : showSignup ? authMethod === "phone" ? "Verify & create account" : "Create account" : "Log in"}</button><p className="modal-switch">{showSignup ? "Already on Tivva?" : "New to Tivva?"} <button onClick={() => {setShowSignup(!showSignup);setShowLogin(!showLogin);}}>{showSignup ? "Log in" : "Create an account"}</button></p><small>Keep your password private. Tivva uses secure Supabase authentication.</small></section></div>}
 
-      <nav className="mobile-bottom"><button className="selected"><Home size={20}/>Home</button><button><Compass size={20}/>Discover</button><button onClick={() => setShowLogin(true)}><PlusSquare size={20}/>Upload</button><button onClick={() => signedIn ? setShowProfile(true) : setShowLogin(true)}><UserRound size={20}/>Profile</button></nav>
+      <nav className="mobile-bottom"><button className="selected"><Home size={20}/>Home</button><button><Compass size={20}/>Discover</button><button onClick={() => signedIn ? setShowVideoUpload(true) : setShowLogin(true)}><PlusSquare size={20}/>Upload</button><button onClick={() => signedIn ? setShowProfile(true) : setShowLogin(true)}><UserRound size={20}/>Profile</button></nav>
     </main>
   );
 }
