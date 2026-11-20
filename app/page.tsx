@@ -421,7 +421,7 @@ export default function HomePage() {
         </aside>
 
         <section className="feed-column">
-          {showProfile && signedIn ? <div className="profile-page">
+          {(showProfile && signedIn) ? (<div className="profile-page">
             <div className="profile-topline"><div><span className="eyebrow">YOUR TIVVA ACCOUNT</span><h1>Your profile.</h1><p className="profile-email">{profileEmail || "Signed-in account"}</p></div><button className="following-select" onClick={() => setShowProfile(false)}>Back to feed</button></div>
             <div className="profile-editor">
               <div className="profile-avatar-preview">{profilePhotoUrl ? <img src={profilePhotoUrl} alt="Your profile" /> : <UserRound size={34} />}</div>
@@ -434,7 +434,7 @@ export default function HomePage() {
               {profileMessage && <p className="profile-message" role="status">{profileMessage}</p>}
               <button className="profile-save" onClick={saveProfile} disabled={profileSaving}>{profileSaving ? "Saving..." : "Save profile"}</button>
             </div>
-          </div> : <><div className="feed-heading">
+          </div>) : (<><div className="feed-heading">
             <div><span className="eyebrow"><Sparkles size={13} /> YOUR DAILY DOSE OF DISCOVERY</span><h1>Find your <span>moment.</span></h1></div>
             <button className="following-select" onClick={() => setActiveTab(activeTab === "For You" ? "Following" : "For You")}>{activeTab}<ChevronDown size={15}/></button>
           </div>
@@ -468,7 +468,7 @@ export default function HomePage() {
               </div>
             </article>
           ))}
-          <div className="end-feed"><span /> YOU&apos;RE RIGHT ON TIME <span /></div></>}
+          <div className="end-feed"><span /> YOU&apos;RE RIGHT ON TIME <span /></div></>)}
         </section>
 
         <aside className="right-rail">
