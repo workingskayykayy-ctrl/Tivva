@@ -95,6 +95,13 @@ export default function HomePage() {
   const [videoUploading, setVideoUploading] = useState(false);
   const [videoMessage, setVideoMessage] = useState("");
   const [uploadedClips, setUploadedClips] = useState<TivvaClip[]>([]);
+  const [commentsClip, setCommentsClip] = useState<TivvaClip | null>(null);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsList, setCommentsList] = useState<{id:string; comment:string; created_at:string; user_id:string}[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [commentMessage, setCommentMessage] = useState("");
+  const [commentSending, setCommentSending] = useState(false);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -340,6 +347,47 @@ export default function HomePage() {
     } finally { setVideoUploading(false); }
   };
 
+  const openComments = async (clip: TivvaClip) => {
+    if (!signedIn) { setShowLogin(true); return; }
+    setCommentsClip(clip);
+    setCommentsOpen(true);
+    setCommentsList([]);
+    setCommentDraft("");
+    setCommentMessage("");
+    if (typeof clip.id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clip.id)) {
+      setCommentMessage("Comments can be added to community-uploaded videos. This is a Tivva preview video.");
+      return;
+    }
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) { setCommentMessage("Tivva connection is unavailable. Refresh and try again."); return; }
+    setCommentsLoading(true);
+    const { data, error } = await supabase.from("video_comments").select("id,comment,created_at,user_id").eq("post_id", clip.id).order("created_at", { ascending: true });
+    setCommentsLoading(false);
+    if (error) { setCommentMessage(error.message); return; }
+    setCommentsList(data ?? []);
+  };
+
+  const sendComment = async () => {
+    const text = commentDraft.trim();
+    if (!text) { setCommentMessage("Write a comment first."); return; }
+    if (!commentsClip || typeof commentsClip.id !== "string") { setCommentMessage("Comments are only available on community videos."); return; }
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) { setCommentMessage("Tivva connection is unavailable."); return; }
+    setCommentSending(true);
+    setCommentMessage("");
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) { setCommentSending(false); setCommentMessage("Please log in again to comment."); return; }
+    const { data, error } = await supabase.from("video_comments").insert({
+      post_id: commentsClip.id,
+      user_id: user.id,
+      comment: text
+    }).select("id,comment,created_at,user_id").single();
+    setCommentSending(false);
+    if (error) { setCommentMessage(error.message); return; }
+    setCommentsList((prev) => [...prev, data]);
+    setCommentDraft("");
+  };
+
   const toggle = (list: (number | string)[], id: number | string, setter: (value: (number | string)[]) => void) =>
     setter(list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
 
@@ -413,7 +461,7 @@ export default function HomePage() {
                 <div className="sound-line">♫ {clip.sound}</div>
                 <div className="engagement">
                   <button className={liked.includes(clip.id) ? "engage active-like" : "engage"} onClick={() => toggle(liked, clip.id, setLiked)}><Heart size={19} fill={liked.includes(clip.id) ? "currentColor" : "none"}/><span>{liked.includes(clip.id) ? "24.9K" : clip.likes}</span></button>
-                  <button className="engage" onClick={() => setShowLogin(true)}><MessageCircle size={19}/><span>{clip.comments}</span></button>
+                  <button className="engage" onClick={() => void openComments(clip)}><MessageCircle size={19}/><span>{commentsClip?.id === clip.id && commentsOpen ? commentsList.length : clip.comments}</span></button>
                   <button className="engage" onClick={() => setShowLogin(true)}><Share2 size={19}/><span>Share</span></button>
                   <button className={saved.includes(clip.id) ? "engage saved" : "engage"} aria-label="Save video" onClick={() => toggle(saved, clip.id, setSaved)}><Bookmark size={19} fill={saved.includes(clip.id) ? "currentColor" : "none"}/></button>
                 </div>
@@ -431,6 +479,7 @@ export default function HomePage() {
       </div>
 
 
+      {commentsOpen && commentsClip && <div className="modal-backdrop" onClick={() => setCommentsOpen(false)}><section className="auth-modal comments-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" aria-label="Close comments" onClick={() => setCommentsOpen(false)}><X size={20}/></button><span className="eyebrow">COMMUNITY CONVERSATION</span><h2>Comments</h2><p className="comments-video-caption">{commentsClip.caption}</p><div className="comments-list">{commentsLoading ? <p>Loading comments...</p> : commentsList.length ? commentsList.map((item) => <div className="comment-item" key={item.id}><div className="comment-avatar">T</div><div><strong>Tivva user</strong><p>{item.comment}</p><small>{new Date(item.created_at).toLocaleString()}</small></div></div> : <p className="comments-empty">No comments yet. Be the first to join the conversation.</p>}</div>{commentMessage && <p role="status" className="comments-message">{commentMessage}</p>}{commentsClip && typeof commentsClip.id === "string" && <div className="comment-compose"><textarea value={commentDraft} onChange={(event) => setCommentDraft(event.target.value)} maxLength={500} rows={3} placeholder="Write a comment..."/><button className="modal-submit" disabled={commentSending} onClick={() => void sendComment()}>{commentSending ? "Posting..." : "Post comment"}</button></div>}</section></div>}
       {showVideoUpload && <div className="modal-backdrop" onClick={() => { if (!videoUploading) setShowVideoUpload(false); }}><section className="auth-modal video-upload-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={() => { if (!videoUploading) setShowVideoUpload(false); }}><X size={20}/></button><div className="modal-brand"><Film size={26}/></div><span className="eyebrow">SHARE YOUR MOMENT</span><h2>Upload a video.</h2><p>Select a video from your phone gallery and share it with Tivva.</p><label className="video-file-picker"><Upload size={19}/><span>{videoFile ? videoFile.name : "Choose video from gallery"}</span><input type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files?.[0] || null)}/></label>{videoFile && <video className="video-upload-preview" src={URL.createObjectURL(videoFile)} controls playsInline /> }<label>Caption<textarea className="video-caption-input" value={videoCaption} onChange={(e) => setVideoCaption(e.target.value)} maxLength={220} placeholder="What's happening in your video?" rows={3}/></label><small className="upload-limit">Video limit: 50 MB. Please upload a video you own or have permission to share.</small>{videoMessage && <p role="status">{videoMessage}</p>}<button className="modal-submit" disabled={videoUploading} onClick={uploadVideo}>{videoUploading ? "Uploading video..." : "Post video"}</button></section></div>}
       {(showLogin || showSignup) && <div className="modal-backdrop" onClick={() => {setShowLogin(false);setShowSignup(false);}}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={() => {setShowLogin(false);setShowSignup(false);}}><X size={20}/></button><div className="modal-brand">t.</div><span className="eyebrow">YOUR NEXT CHAPTER STARTS HERE</span><h2>{showSignup ? "Join Tivva." : "Welcome back."}</h2><p>{showSignup ? "Create your account and find your people." : "Log in to continue your Tivva journey."}</p><div className="auth-methods"><button type="button" className={authMethod === "email" ? "auth-method active" : "auth-method"} onClick={() => {setAuthMethod("email");setPhoneStep("details");setAuthMessage("");}}>Email</button><button type="button" className={authMethod === "phone" ? "auth-method active" : "auth-method"} onClick={() => {setAuthMethod("phone");setPhoneStep("details");setAuthMessage("");}}>Phone</button></div>{authMethod === "email" ? <label>Email address<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com"/></label> : <><label>Phone number<input type="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+2348012345678"/></label>{showSignup && phoneStep === "code" && <label>SMS verification code<input inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={(event) => setOtp(event.target.value)} placeholder="Enter the code sent to your phone"/></label>}</>}<label>Password<input type="password" autoComplete={showSignup ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters"/></label>{authMessage && <p role="status" aria-live="polite">{authMessage}</p>}<button className="modal-submit" disabled={authBusy} onClick={handleAuth}>{authBusy ? "Please wait..." : showSignup && authMethod === "phone" && phoneStep === "details" ? "Send verification code" : showSignup ? authMethod === "phone" ? "Verify & create account" : "Create account" : "Log in"}</button><p className="modal-switch">{showSignup ? "Already on Tivva?" : "New to Tivva?"} <button onClick={() => {setShowSignup(!showSignup);setShowLogin(!showLogin);}}>{showSignup ? "Log in" : "Create an account"}</button></p><small>Keep your password private. Tivva uses secure Supabase authentication.</small></section></div>}
 
