@@ -8,7 +8,22 @@ import {
   ChevronDown, ShieldCheck, Video, Upload, Film
 } from "lucide-react";
 
-const clips = [
+type TivvaClip = {
+  id: number;
+  creator: string;
+  name: string;
+  caption: string;
+  tags: string;
+  likes: string;
+  comments: string;
+  color: string;
+  initials: string;
+  sound: string;
+  videoUrl?: string;
+  uploadedBy?: string;
+};
+
+const clips: TivvaClip[] = [
   {
     id: 1,
     creator: "maya.creates",
@@ -79,7 +94,7 @@ export default function HomePage() {
   const [videoCaption, setVideoCaption] = useState("");
   const [videoUploading, setVideoUploading] = useState(false);
   const [videoMessage, setVideoMessage] = useState("");
-  const [uploadedClips, setUploadedClips] = useState<any[]>([]);
+  const [uploadedClips, setUploadedClips] = useState<TivvaClip[]>([]);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -337,7 +352,7 @@ export default function HomePage() {
             {["For You", "Following", "Trending"].map((tab) => <button key={tab} className={activeTab === tab ? "tab active-tab" : "tab"} onClick={() => setActiveTab(tab)}>{tab}</button>)}
           </div>
 
-          {[...uploadedClips, ...clips].map((clip: any, index) => (
+          {[...uploadedClips, ...clips].map((clip, index) => (
             <article className="video-card" key={clip.id}>
               <div className={`video-stage ${clip.color}`}>
                 {clip.videoUrl ? <video className="uploaded-video" src={clip.videoUrl} controls playsInline /> : <><div className="stage-glow" />
