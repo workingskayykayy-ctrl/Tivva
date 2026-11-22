@@ -102,6 +102,7 @@ export default function HomePage() {
   const [commentDraft, setCommentDraft] = useState("");
   const [commentMessage, setCommentMessage] = useState("");
   const [commentSending, setCommentSending] = useState(false);
+  const [engagementMessage, setEngagementMessage] = useState("");
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -132,6 +133,24 @@ export default function HomePage() {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    let active = true;
+    const loadEngagements = async () => {
+      if (!signedIn) { setLiked([]); setSaved([]); return; }
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (!active || userError || !user) return;
+      const { data, error } = await supabase.from("video_engagements")
+        .select("clip_id,engagement_type").eq("user_id", user.id);
+      if (!active || error || !data) return;
+      setLiked(data.filter((row) => row.engagement_type === "like").map((row) => row.clip_id));
+      setSaved(data.filter((row) => row.engagement_type === "save").map((row) => row.clip_id));
+    };
+    void loadEngagements();
+    return () => { active = false; };
+  }, [signedIn]);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -326,7 +345,7 @@ export default function HomePage() {
         initials: (meta.display_name || "TC").slice(0, 2).toUpperCase(),
         sound: "Original sound", videoUrl: data.publicUrl, uploadedBy: user.id
       };
-      const { error: postError } = await supabase.from("video_posts").insert({
+      const { data: savedPost, error: postError } = await supabase.from("video_posts").insert({
         user_id: user.id,
         video_url: data.publicUrl,
         caption: newClip.caption,
@@ -334,11 +353,12 @@ export default function HomePage() {
         creator_name: newClip.name,
         creator_initials: newClip.initials,
         tags: newClip.tags
-      });
-      if (postError) {
+      }).select("id").single();
+      if (postError || !savedPost) {
         await supabase.storage.from("tivva-videos").remove([path]);
         throw postError;
       }
+      newClip.id = savedPost.id;
       setUploadedClips((prev) => [newClip, ...prev]);
       setVideoMessage("Your video is uploaded and added to this feed!");
       setVideoFile(null); setVideoCaption(""); setShowVideoUpload(false);
@@ -388,8 +408,33 @@ export default function HomePage() {
     setCommentDraft("");
   };
 
-  const toggle = (list: (number | string)[], id: number | string, setter: (value: (number | string)[]) => void) =>
-    setter(list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
+  const toggleEngagement = async (kind: "like" | "save", id: number | string) => {
+    setEngagementMessage("");
+    if (!signedIn) { setShowLogin(true); return; }
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) { setEngagementMessage("Tivva connection is unavailable. Refresh and try again."); return; }
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) { setShowLogin(true); return; }
+    const clipId = String(id);
+    const list = kind === "like" ? liked : saved;
+    const setter = kind === "like" ? setLiked : setSaved;
+    const isActive = list.some((item) => String(item) === clipId);
+    if (isActive) {
+      const { error } = await supabase.from("video_engagements").delete()
+        .eq("user_id", user.id).eq("clip_id", clipId).eq("engagement_type", kind);
+      if (error) { setEngagementMessage(error.message); return; }
+      setter(list.filter((item) => String(item) !== clipId));
+    } else {
+      const { error } = await supabase.from("video_engagements").upsert(
+        { user_id: user.id, clip_id: clipId, engagement_type: kind },
+        { onConflict: "user_id,clip_id,engagement_type", ignoreDuplicates: true }
+      );
+      if (error) { setEngagementMessage(error.message); return; }
+      setter([...list.filter((item) => String(item) !== clipId), clipId]);
+    }
+  };
+
+
 
   return (
     <main className="app-shell">
@@ -441,6 +486,7 @@ export default function HomePage() {
           <div className="feed-tabs">
             {["For You", "Following", "Trending"].map((tab) => <button key={tab} className={activeTab === tab ? "tab active-tab" : "tab"} onClick={() => setActiveTab(tab)}>{tab}</button>)}
           </div>
+          {engagementMessage && <p className="comments-message" role="status">{engagementMessage}</p>}
 
           {[...uploadedClips, ...clips].map((clip, index) => (
             <article className="video-card" key={clip.id}>
@@ -460,10 +506,10 @@ export default function HomePage() {
                 <p className="caption">{clip.caption}</p><p className="hashtags">{clip.tags}</p>
                 <div className="sound-line">♫ {clip.sound}</div>
                 <div className="engagement">
-                  <button className={liked.includes(clip.id) ? "engage active-like" : "engage"} onClick={() => toggle(liked, clip.id, setLiked)}><Heart size={19} fill={liked.includes(clip.id) ? "currentColor" : "none"}/><span>{liked.includes(clip.id) ? "24.9K" : clip.likes}</span></button>
+                  <button className={liked.includes(clip.id) ? "engage active-like" : "engage"} onClick={() => void toggleEngagement("like", clip.id)}><Heart size={19} fill={liked.includes(clip.id) ? "currentColor" : "none"}/><span>{liked.includes(clip.id) ? "24.9K" : clip.likes}</span></button>
                   <button className="engage" onClick={() => void openComments(clip)}><MessageCircle size={19}/><span>{commentsClip?.id === clip.id && commentsOpen ? commentsList.length : clip.comments}</span></button>
                   <button className="engage" onClick={() => setShowLogin(true)}><Share2 size={19}/><span>Share</span></button>
-                  <button className={saved.includes(clip.id) ? "engage saved" : "engage"} aria-label="Save video" onClick={() => toggle(saved, clip.id, setSaved)}><Bookmark size={19} fill={saved.includes(clip.id) ? "currentColor" : "none"}/></button>
+                  <button className={saved.includes(clip.id) ? "engage saved" : "engage"} aria-label="Save video" onClick={() => void toggleEngagement("save", clip.id)}><Bookmark size={19} fill={saved.includes(clip.id) ? "currentColor" : "none"}/></button>
                 </div>
               </div>
             </article>
