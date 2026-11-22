@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "../lib/supabase";
 import {
-  Search, Home, Compass, PlusSquare, UserRound, Heart, MessageCircle,
+  Search, Home, Compass, PlusSquare, UserRound, Heart, MessageCircle, Bell,
   Share2, Bookmark, Play, Volume2, VolumeX, Menu, X, Sparkles,
   ChevronDown, ShieldCheck, Video, Upload, Film
 } from "lucide-react";
@@ -106,6 +106,10 @@ export default function HomePage() {
   const [commentMessage, setCommentMessage] = useState("");
   const [commentSending, setCommentSending] = useState(false);
   const [engagementMessage, setEngagementMessage] = useState("");
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<{id:string; actor_name:string; type:string; message:string; video_id:string|null; created_at:string; read_at:string|null}[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState("");
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -187,6 +191,29 @@ export default function HomePage() {
     return () => { active = false; };
   }, [signedIn, uploadedClips]);
 
+  const createNotification = async (recipientId: string, type: string, message: string, videoId?: string | null) => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase || !signedIn) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || user.id === recipientId) return;
+    const actorName = profileName || profileUsername || user.user_metadata?.display_name || user.email?.split("@")[0] || "Tivva user";
+    const { error } = await supabase.from("tivva_notifications").insert({ recipient_id: recipientId, actor_id: user.id, actor_name: actorName, type, message, video_id: videoId ? String(videoId) : null });
+    if (error) console.warn("Tivva notification:", error.message);
+  };
+
+  const loadNotifications = async (markRead = false) => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) { setNotificationMessage("Tivva connection is unavailable."); return; }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setNotificationMessage("Please sign in to view notifications."); return; }
+    setNotificationsLoading(true); setNotificationMessage("");
+    if (markRead) await supabase.from("tivva_notifications").update({ read_at: new Date().toISOString() }).eq("recipient_id", user.id).is("read_at", null);
+    const { data, error } = await supabase.from("tivva_notifications").select("id,actor_name,type,message,video_id,created_at,read_at").eq("recipient_id", user.id).order("created_at", { ascending: false }).limit(100);
+    setNotificationsLoading(false);
+    if (error) { setNotificationMessage(error.message.includes("tivva_notifications") ? "Notifications database is not set up yet. Please complete the setup step." : error.message); return; }
+    setNotifications(data ?? []);
+  };
+
   const toggleFollow = async (clip: TivvaClip) => {
     const wasFollowing = following.includes(clip.creator);
     setFollowing((prev) => wasFollowing ? prev.filter((handle) => handle !== clip.creator) : prev.includes(clip.creator) ? prev : [...prev, clip.creator]);
@@ -200,6 +227,7 @@ export default function HomePage() {
       : supabase.from("creator_follows").upsert({ follower_id: user.id, following_id: clip.uploadedBy }, { onConflict: "follower_id,following_id", ignoreDuplicates: true });
     const { error } = await request;
     if (error) console.warn("Tivva follow sync:", error.message);
+    else if (!wasFollowing) await createNotification(clip.uploadedBy, "follow", "started following you");
   };
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -453,6 +481,7 @@ export default function HomePage() {
     if (error) { setCommentMessage(error.message); return; }
     setCommentsList((prev) => [...prev, data]);
     setCommentDraft("");
+    if (isUploadedPost && commentsClip.uploadedBy) await createNotification(commentsClip.uploadedBy, "comment", `commented: ${text.slice(0, 120)}`, commentsClip.id);
   };
 
   const toggleEngagement = (kind: "like" | "save", id: number | string) => {
@@ -472,7 +501,13 @@ export default function HomePage() {
         const query = isActive
           ? supabase.from("video_engagements").delete().eq("user_id", user.id).eq("clip_id", clipId).eq("engagement_type", kind)
           : supabase.from("video_engagements").upsert({ user_id: user.id, clip_id: clipId, engagement_type: kind }, { onConflict: "user_id,clip_id,engagement_type", ignoreDuplicates: true });
-        void query.then(({ error }) => { if (error) console.warn("Tivva engagement sync:", error.message); });
+        void query.then(async ({ error }) => {
+          if (error) { console.warn("Tivva engagement sync:", error.message); return; }
+          if (kind === "like" && !isActive) {
+            const target = [...uploadedClips, ...clips].find((clip) => String(clip.id) === clipId);
+            if (target?.uploadedBy) await createNotification(target.uploadedBy, "like", "liked your video", clipId);
+          }
+        });
       });
     }
   };
@@ -497,6 +532,7 @@ export default function HomePage() {
             <button className="nav-item active"><Home size={20} /> For You</button>
             <button className="nav-item"><Compass size={20} /> Discover</button>
             <button className="nav-item" onClick={() => signedIn ? setShowVideoUpload(true) : setShowLogin(true)}><PlusSquare size={20} /> Upload video</button>
+            <button className="nav-item" onClick={() => signedIn ? (setShowNotifications(true), void loadNotifications(true)) : setShowLogin(true)}><Bell size={20} /> Notifications</button>
             <button className="nav-item" onClick={() => setShowLogin(true)}><MessageCircle size={20} /> Inbox</button>
             <button className="nav-item" onClick={() => signedIn ? setShowProfile(true) : setShowLogin(true)}><UserRound size={20} /> Profile</button>
           </nav>
@@ -509,7 +545,12 @@ export default function HomePage() {
         </aside>
 
         <section className="feed-column">
-          {viewedCreator ? (<div className="profile-page creator-profile-page">
+          {showNotifications && signedIn ? (<div className="profile-page notifications-page">
+            <div className="profile-topline"><div><span className="eyebrow">YOUR COMMUNITY</span><h1>Notifications.</h1><p className="profile-email">Likes, comments and new followers.</p></div><button className="following-select" onClick={() => setShowNotifications(false)}>Back to feed</button></div>
+            <button className="notification-refresh" onClick={() => void loadNotifications(true)}>Refresh notifications</button>
+            {notificationMessage && <p className="comments-message" role="status">{notificationMessage}</p>}
+            {notificationsLoading ? <p className="notifications-empty">Loading notifications...</p> : notifications.length === 0 ? <div className="notifications-empty"><Bell size={28}/><strong>You’re all caught up.</strong><span>Likes, comments and follows will show up here.</span></div> : <div className="notification-list">{notifications.map((item) => <article className="notification-item" key={item.id}><div className={`notification-icon ${item.type}`}>{item.type === "like" ? <Heart size={17}/> : item.type === "comment" ? <MessageCircle size={17}/> : <UserRound size={17}/>}</div><div className="notification-copy"><strong>{item.actor_name}</strong><span>{item.message}</span><small>{new Date(item.created_at).toLocaleString()}</small></div>{!item.read_at && <span className="notification-unread" aria-label="Unread"/>}</article>)}</div>
+          </div>) : viewedCreator ? (<div className="profile-page creator-profile-page">
             <div className="profile-topline">
               <div><span className="eyebrow">CREATOR PROFILE</span><h1>{viewedCreator.name}</h1><p className="profile-email">@{viewedCreator.creator}</p></div>
               <button className="following-select" onClick={() => setViewedCreator(null)}>Back to feed</button>
