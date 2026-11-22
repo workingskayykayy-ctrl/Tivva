@@ -414,23 +414,25 @@ export default function HomePage() {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) { setEngagementMessage("Tivva connection is unavailable. Refresh and try again."); return; }
     const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) { setShowLogin(true); return; }
+    if (userError || !user) { setShowLogin(true); setEngagementMessage("Please log in again."); return; }
     const clipId = String(id);
     const list = kind === "like" ? liked : saved;
     const setter = kind === "like" ? setLiked : setSaved;
     const isActive = list.some((item) => String(item) === clipId);
+    const nextList = isActive ? list.filter((item) => String(item) !== clipId) : [...list, clipId];
+    setter(nextList);
     if (isActive) {
       const { error } = await supabase.from("video_engagements").delete()
         .eq("user_id", user.id).eq("clip_id", clipId).eq("engagement_type", kind);
-      if (error) { setEngagementMessage(error.message); return; }
-      setter(list.filter((item) => String(item) !== clipId));
+      if (error) { setter(list); setEngagementMessage("Couldn't remove this. " + error.message); }
     } else {
-      const { error } = await supabase.from("video_engagements").upsert(
-        { user_id: user.id, clip_id: clipId, engagement_type: kind },
-        { onConflict: "user_id,clip_id,engagement_type", ignoreDuplicates: true }
+      const { error } = await supabase.from("video_engagements").insert(
+        { user_id: user.id, clip_id: clipId, engagement_type: kind }
       );
-      if (error) { setEngagementMessage(error.message); return; }
-      setter([...list.filter((item) => String(item) !== clipId), clipId]);
+      if (error && error.code !== "23505") {
+        setter(list);
+        setEngagementMessage("Couldn't save this like. " + error.message);
+      }
     }
   };
 
