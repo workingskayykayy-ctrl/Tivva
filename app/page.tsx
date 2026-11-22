@@ -135,22 +135,22 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
-    let active = true;
-    const loadEngagements = async () => {
-      if (!signedIn) { setLiked([]); setSaved([]); return; }
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (!active || userError || !user) return;
-      const { data, error } = await supabase.from("video_engagements")
-        .select("clip_id,engagement_type").eq("user_id", user.id);
-      if (!active || error || !data) return;
-      setLiked(data.filter((row) => row.engagement_type === "like").map((row) => row.clip_id));
-      setSaved(data.filter((row) => row.engagement_type === "save").map((row) => row.clip_id));
-    };
-    void loadEngagements();
-    return () => { active = false; };
-  }, [signedIn]);
+    try {
+      const likes = JSON.parse(window.localStorage.getItem("tivva-liked-videos") || "[]");
+      const bookmarks = JSON.parse(window.localStorage.getItem("tivva-saved-videos") || "[]");
+      if (Array.isArray(likes)) setLiked(likes);
+      if (Array.isArray(bookmarks)) setSaved(bookmarks);
+    } catch { /* Ignore unavailable/corrupt local storage. */ }
+  }, []);
+
+  useEffect(() => {
+    try { window.localStorage.setItem("tivva-liked-videos", JSON.stringify(liked)); } catch {}
+  }, [liked]);
+
+  useEffect(() => {
+    try { window.localStorage.setItem("tivva-saved-videos", JSON.stringify(saved)); } catch {}
+  }, [saved]);
+
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -374,14 +374,13 @@ export default function HomePage() {
     setCommentsList([]);
     setCommentDraft("");
     setCommentMessage("");
-    if (typeof clip.id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clip.id)) {
-      setCommentMessage("Comments can be added to community-uploaded videos. This is a Tivva preview video.");
-      return;
-    }
+    const isUploadedPost = typeof clip.id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clip.id);
     const supabase = getSupabaseBrowserClient();
     if (!supabase) { setCommentMessage("Tivva connection is unavailable. Refresh and try again."); return; }
     setCommentsLoading(true);
-    const { data, error } = await supabase.from("video_comments").select("id,comment,created_at,user_id").eq("post_id", clip.id).order("created_at", { ascending: true });
+    const { data, error } = isUploadedPost
+      ? await supabase.from("video_comments").select("id,comment,created_at,user_id").eq("post_id", clip.id).order("created_at", { ascending: true })
+      : await supabase.from("preview_video_comments").select("id,comment,created_at,user_id").eq("clip_id", String(clip.id)).order("created_at", { ascending: true });
     setCommentsLoading(false);
     if (error) { setCommentMessage(error.message); return; }
     setCommentsList(data ?? []);
@@ -390,49 +389,40 @@ export default function HomePage() {
   const sendComment = async () => {
     const text = commentDraft.trim();
     if (!text) { setCommentMessage("Write a comment first."); return; }
-    if (!commentsClip || typeof commentsClip.id !== "string") { setCommentMessage("Comments are only available on community videos."); return; }
+    if (!commentsClip) { setCommentMessage("Choose a video to comment on."); return; }
     const supabase = getSupabaseBrowserClient();
     if (!supabase) { setCommentMessage("Tivva connection is unavailable."); return; }
     setCommentSending(true);
     setCommentMessage("");
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) { setCommentSending(false); setCommentMessage("Please log in again to comment."); return; }
-    const { data, error } = await supabase.from("video_comments").insert({
-      post_id: commentsClip.id,
-      user_id: user.id,
-      comment: text
-    }).select("id,comment,created_at,user_id").single();
+    const isUploadedPost = typeof commentsClip.id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(commentsClip.id);
+    const { data, error } = isUploadedPost
+      ? await supabase.from("video_comments").insert({ post_id: commentsClip.id, user_id: user.id, comment: text }).select("id,comment,created_at,user_id").single()
+      : await supabase.from("preview_video_comments").insert({ clip_id: String(commentsClip.id), user_id: user.id, comment: text }).select("id,comment,created_at,user_id").single();
     setCommentSending(false);
     if (error) { setCommentMessage(error.message); return; }
     setCommentsList((prev) => [...prev, data]);
     setCommentDraft("");
   };
 
-  const toggleEngagement = async (kind: "like" | "save", id: number | string) => {
-    setEngagementMessage("");
-    if (!signedIn) { setShowLogin(true); return; }
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) { setEngagementMessage("Tivva connection is unavailable. Refresh and try again."); return; }
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) { setShowLogin(true); setEngagementMessage("Please log in again."); return; }
+  const toggleEngagement = (kind: "like" | "save", id: number | string) => {
     const clipId = String(id);
     const list = kind === "like" ? liked : saved;
     const setter = kind === "like" ? setLiked : setSaved;
     const isActive = list.some((item) => String(item) === clipId);
-    const nextList = isActive ? list.filter((item) => String(item) !== clipId) : [...list, clipId];
-    setter(nextList);
-    if (isActive) {
-      const { error } = await supabase.from("video_engagements").delete()
-        .eq("user_id", user.id).eq("clip_id", clipId).eq("engagement_type", kind);
-      if (error) { setter(list); setEngagementMessage("Couldn't remove this. " + error.message); }
-    } else {
-      const { error } = await supabase.from("video_engagements").insert(
-        { user_id: user.id, clip_id: clipId, engagement_type: kind }
-      );
-      if (error && error.code !== "23505") {
-        setter(list);
-        setEngagementMessage("Couldn't save this like. " + error.message);
-      }
+    setter(isActive ? list.filter((item) => String(item) !== clipId) : [...list, clipId]);
+    setEngagementMessage("");
+    // Local persistence makes likes/bookmarks respond immediately, even if offline or database syncing fails.
+    if (signedIn) {
+      const supabase = getSupabaseBrowserClient();
+      if (supabase) void supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return;
+        const query = isActive
+          ? supabase.from("video_engagements").delete().eq("user_id", user.id).eq("clip_id", clipId).eq("engagement_type", kind)
+          : supabase.from("video_engagements").upsert({ user_id: user.id, clip_id: clipId, engagement_type: kind }, { onConflict: "user_id,clip_id,engagement_type", ignoreDuplicates: true });
+        void query.then(({ error }) => { if (error) console.warn("Tivva engagement sync:", error.message); });
+      });
     }
   };
 
@@ -546,7 +536,7 @@ export default function HomePage() {
               ))}
             </div>
             {commentMessage && <p role="status" className="comments-message">{commentMessage}</p>}
-            {typeof commentsClip.id === "string" && <div className="comment-compose"><textarea value={commentDraft} onChange={(event) => setCommentDraft(event.target.value)} maxLength={500} rows={3} placeholder="Write a comment..."/><button className="modal-submit" disabled={commentSending} onClick={() => void sendComment()}>{commentSending ? "Posting..." : "Post comment"}</button></div>}
+            {<div className="comment-compose"><textarea value={commentDraft} onChange={(event) => setCommentDraft(event.target.value)} maxLength={500} rows={3} placeholder="Write a comment..."/><button className="modal-submit" disabled={commentSending} onClick={() => void sendComment()}>{commentSending ? "Posting..." : "Post comment"}</button></div>}
           </section>
         </div>
       )}
