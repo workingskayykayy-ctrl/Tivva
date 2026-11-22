@@ -82,7 +82,8 @@ export default function HomePage() {
   const [authMessage, setAuthMessage] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);\n  const [viewedCreator, setViewedCreator] = useState<TivvaClip | null>(null);
+  const [showProfile, setShowProfile] = useState(false);
+  const [viewedCreator, setViewedCreator] = useState<TivvaClip | null>(null);
   const [profileEmail, setProfileEmail] = useState("");
   const [profileName, setProfileName] = useState("");
   const [profileUsername, setProfileUsername] = useState("");
