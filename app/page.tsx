@@ -68,6 +68,7 @@ export default function HomePage() {
   const [saved, setSaved] = useState<(number | string)[]>([]);
   const [engagementHydrated, setEngagementHydrated] = useState(false);
   const [following, setFollowing] = useState<string[]>([]);
+  const [followsHydrated, setFollowsHydrated] = useState(false);
   const [muted, setMuted] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
@@ -156,6 +157,49 @@ export default function HomePage() {
   }, [saved, engagementHydrated]);
 
 
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(window.localStorage.getItem("tivva-following-creators") || "[]");
+      if (Array.isArray(stored)) setFollowing(stored.filter((item) => typeof item === "string"));
+    } catch {}
+    finally { setFollowsHydrated(true); }
+  }, []);
+
+  useEffect(() => {
+    if (!followsHydrated) return;
+    try { window.localStorage.setItem("tivva-following-creators", JSON.stringify(following)); } catch {}
+  }, [following, followsHydrated]);
+
+  useEffect(() => {
+    if (!signedIn || uploadedClips.length === 0) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    let active = true;
+    void supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user || !active) return;
+      const { data } = await supabase.from("creator_follows").select("following_id").eq("follower_id", user.id);
+      if (!active || !data) return;
+      const followedIds = new Set(data.map((row) => row.following_id));
+      const followedHandles = uploadedClips.filter((clip) => clip.uploadedBy && followedIds.has(clip.uploadedBy)).map((clip) => clip.creator);
+      setFollowing((prev) => Array.from(new Set([...prev, ...followedHandles])));
+    });
+    return () => { active = false; };
+  }, [signedIn, uploadedClips]);
+
+  const toggleFollow = async (clip: TivvaClip) => {
+    const wasFollowing = following.includes(clip.creator);
+    setFollowing((prev) => wasFollowing ? prev.filter((handle) => handle !== clip.creator) : prev.includes(clip.creator) ? prev : [...prev, clip.creator]);
+    if (!signedIn || !clip.uploadedBy) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const request = wasFollowing
+      ? supabase.from("creator_follows").delete().eq("follower_id", user.id).eq("following_id", clip.uploadedBy)
+      : supabase.from("creator_follows").upsert({ follower_id: user.id, following_id: clip.uploadedBy }, { onConflict: "follower_id,following_id", ignoreDuplicates: true });
+    const { error } = await request;
+    if (error) console.warn("Tivva follow sync:", error.message);
+  };
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
@@ -486,7 +530,7 @@ export default function HomePage() {
           </div>
           {engagementMessage && <p className="comments-message" role="status">{engagementMessage}</p>}
 
-          {[...uploadedClips, ...clips].map((clip, index) => (
+          {[...uploadedClips, ...clips].filter((clip) => activeTab !== "Following" || following.includes(clip.creator)).map((clip, index) => (
             <article className="video-card" key={clip.id}>
               <div className={`video-stage ${clip.color}`}>
                 {clip.videoUrl ? <video className="uploaded-video" src={clip.videoUrl} controls playsInline /> : <><div className="stage-glow" />
@@ -500,7 +544,7 @@ export default function HomePage() {
                 <button className="sound-toggle" aria-label={muted ? "Unmute preview" : "Mute preview"} onClick={() => setMuted(!muted)}>{muted ? <VolumeX size={17}/> : <Volume2 size={17}/>}</button></>}
               </div>
               <div className="video-details">
-                <div className="creator-row"><div className="avatar">{clip.initials}</div><div className="creator-meta"><strong>{clip.name}</strong><span>@{clip.creator}</span></div><button className={following.includes(clip.creator) ? "follow-button is-following" : "follow-button"} onClick={() => setFollowing(following.includes(clip.creator) ? following.filter(x => x !== clip.creator) : [...following, clip.creator])}>{following.includes(clip.creator) ? "Following" : "Follow"}</button></div>
+                <div className="creator-row"><div className="avatar">{clip.initials}</div><div className="creator-meta"><strong>{clip.name}</strong><span>@{clip.creator}</span></div><button className={following.includes(clip.creator) ? "follow-button is-following" : "follow-button"} onClick={() => void toggleFollow(clip)}>{following.includes(clip.creator) ? "Following" : "Follow"}</button></div>
                 <p className="caption">{clip.caption}</p><p className="hashtags">{clip.tags}</p>
                 <div className="sound-line">♫ {clip.sound}</div>
                 <div className="engagement">
