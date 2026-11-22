@@ -532,7 +532,7 @@ export default function HomePage() {
             <button className="nav-item active"><Home size={20} /> For You</button>
             <button className="nav-item"><Compass size={20} /> Discover</button>
             <button className="nav-item" onClick={() => signedIn ? setShowVideoUpload(true) : setShowLogin(true)}><PlusSquare size={20} /> Upload video</button>
-            <button className="nav-item" onClick={() => signedIn ? (setShowNotifications(true), void loadNotifications(true)) : setShowLogin(true)}><Bell size={20} /> Notifications</button>
+            <button className="nav-item notifications-nav" onClick={() => { setMenuOpen(false); if (signedIn) { setShowNotifications(true); void loadNotifications(true); } else { setShowLogin(true); } }}><Bell size={20} /> Notifications</button>
             <button className="nav-item" onClick={() => setShowLogin(true)}><MessageCircle size={20} /> Inbox</button>
             <button className="nav-item" onClick={() => signedIn ? setShowProfile(true) : setShowLogin(true)}><UserRound size={20} /> Profile</button>
           </nav>
