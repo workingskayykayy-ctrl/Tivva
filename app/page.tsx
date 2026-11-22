@@ -66,6 +66,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState("For You");
   const [liked, setLiked] = useState<(number | string)[]>([]);
   const [saved, setSaved] = useState<(number | string)[]>([]);
+  const [engagementHydrated, setEngagementHydrated] = useState(false);
   const [following, setFollowing] = useState<string[]>([]);
   const [muted, setMuted] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -141,15 +142,18 @@ export default function HomePage() {
       if (Array.isArray(likes)) setLiked(likes);
       if (Array.isArray(bookmarks)) setSaved(bookmarks);
     } catch { /* Ignore unavailable/corrupt local storage. */ }
+    finally { setEngagementHydrated(true); }
   }, []);
 
   useEffect(() => {
+    if (!engagementHydrated) return;
     try { window.localStorage.setItem("tivva-liked-videos", JSON.stringify(liked)); } catch {}
-  }, [liked]);
+  }, [liked, engagementHydrated]);
 
   useEffect(() => {
+    if (!engagementHydrated) return;
     try { window.localStorage.setItem("tivva-saved-videos", JSON.stringify(saved)); } catch {}
-  }, [saved]);
+  }, [saved, engagementHydrated]);
 
 
   useEffect(() => {
@@ -411,7 +415,9 @@ export default function HomePage() {
     const list = kind === "like" ? liked : saved;
     const setter = kind === "like" ? setLiked : setSaved;
     const isActive = list.some((item) => String(item) === clipId);
-    setter(isActive ? list.filter((item) => String(item) !== clipId) : [...list, clipId]);
+    setter((previous) => isActive
+      ? previous.filter((item) => String(item) !== clipId)
+      : previous.some((item) => String(item) === clipId) ? previous : [...previous, clipId]);
     setEngagementMessage("");
     // Local persistence makes likes/bookmarks respond immediately, even if offline or database syncing fails.
     if (signedIn) {
@@ -498,10 +504,10 @@ export default function HomePage() {
                 <p className="caption">{clip.caption}</p><p className="hashtags">{clip.tags}</p>
                 <div className="sound-line">♫ {clip.sound}</div>
                 <div className="engagement">
-                  <button className={liked.includes(clip.id) ? "engage active-like" : "engage"} onClick={() => void toggleEngagement("like", clip.id)}><Heart size={19} fill={liked.includes(clip.id) ? "currentColor" : "none"}/><span>{liked.includes(clip.id) ? "24.9K" : clip.likes}</span></button>
+                  <button className={liked.some((item) => String(item) === String(clip.id)) ? "engage active-like" : "engage"} onClick={() => void toggleEngagement("like", clip.id)}><Heart size={19} fill={liked.includes(clip.id) ? "currentColor" : "none"}/><span>{liked.includes(clip.id) ? "24.9K" : clip.likes}</span></button>
                   <button className="engage" onClick={() => void openComments(clip)}><MessageCircle size={19}/><span>{commentsClip?.id === clip.id && commentsOpen ? commentsList.length : clip.comments}</span></button>
                   <button className="engage" onClick={() => setShowLogin(true)}><Share2 size={19}/><span>Share</span></button>
-                  <button className={saved.includes(clip.id) ? "engage saved" : "engage"} aria-label="Save video" onClick={() => void toggleEngagement("save", clip.id)}><Bookmark size={19} fill={saved.includes(clip.id) ? "currentColor" : "none"}/></button>
+                  <button className={saved.some((item) => String(item) === String(clip.id)) ? "engage saved" : "engage"} aria-label="Save video" onClick={() => void toggleEngagement("save", clip.id)}><Bookmark size={19} fill={saved.includes(clip.id) ? "currentColor" : "none"}/></button>
                 </div>
               </div>
             </article>
