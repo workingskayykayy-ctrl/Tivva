@@ -568,7 +568,7 @@ export default function HomePage() {
                 <button className="sound-toggle" aria-label={muted ? "Unmute preview" : "Mute preview"} onClick={() => setMuted(!muted)}>{muted ? <VolumeX size={17}/> : <Volume2 size={17}/>}</button></>}
               </div>
               <div className="video-details">
-                <div className="creator-row"><div className="avatar">{clip.initials}</div><button className="creator-meta creator-meta-clickable" onClick={() => setViewedCreator(clip)} aria-label={`Open ${clip.name} profile}><strong>{clip.name}</strong><span>@{clip.creator}</span></button><button className={following.includes(clip.creator) ? "follow-button is-following" : "follow-button"} onClick={() => void toggleFollow(clip)}>{following.includes(clip.creator) ? "Following" : "Follow"}</button></div>
+                <div className="creator-row"><div className="avatar">{clip.initials}</div><button className="creator-meta creator-meta-clickable" onClick={() => setViewedCreator(clip)} aria-label={`Open ${clip.name} profile`}><strong>{clip.name}</strong><span>@{clip.creator}</span></button><button className={following.includes(clip.creator) ? "follow-button is-following" : "follow-button"} onClick={() => void toggleFollow(clip)}>{following.includes(clip.creator) ? "Following" : "Follow"}</button></div>
                 <p className="caption">{clip.caption}</p><p className="hashtags">{clip.tags}</p>
                 <div className="sound-line">♫ {clip.sound}</div>
                 <div className="engagement">
