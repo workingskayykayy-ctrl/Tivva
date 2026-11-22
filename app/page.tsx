@@ -82,7 +82,7 @@ export default function HomePage() {
   const [authMessage, setAuthMessage] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);\n  const [viewedCreator, setViewedCreator] = useState<TivvaClip | null>(null);
   const [profileEmail, setProfileEmail] = useState("");
   const [profileName, setProfileName] = useState("");
   const [profileUsername, setProfileUsername] = useState("");
@@ -508,7 +508,30 @@ export default function HomePage() {
         </aside>
 
         <section className="feed-column">
-          {(showProfile && signedIn) ? (<div className="profile-page">
+          {viewedCreator ? (<div className="profile-page creator-profile-page">
+            <div className="profile-topline">
+              <div><span className="eyebrow">CREATOR PROFILE</span><h1>{viewedCreator.name}</h1><p className="profile-email">@{viewedCreator.creator}</p></div>
+              <button className="following-select" onClick={() => setViewedCreator(null)}>Back to feed</button>
+            </div>
+            <div className="creator-profile-header">
+              <div className="creator-profile-avatar">{viewedCreator.initials}</div>
+              <div className="creator-profile-stats">
+                <div><strong>{[...uploadedClips, ...clips].filter((c) => c.creator === viewedCreator.creator).length}</strong><span>Videos</span></div>
+                <div><strong>{following.includes(viewedCreator.creator) ? "Following" : "—"}</strong><span>Status</span></div>
+              </div>
+              <p className="creator-profile-bio">{viewedCreator.uploadedBy ? "Tivva creator sharing moments with the community." : "Tivva preview creator. Discover their moments on Tivva."}</p>
+              <button className={following.includes(viewedCreator.creator) ? "follow-button is-following creator-profile-follow" : "follow-button creator-profile-follow"} onClick={() => void toggleFollow(viewedCreator)}>{following.includes(viewedCreator.creator) ? "Following" : "Follow creator"}</button>
+            </div>
+            <h2 className="creator-posts-heading">Videos</h2>
+            <div className="creator-post-list">
+              {[...uploadedClips, ...clips].filter((c) => c.creator === viewedCreator.creator).map((c) => (
+                <article className="creator-post-item" key={c.id}>
+                  <div className={`creator-post-thumb ${c.color}`}>{c.videoUrl ? <video src={c.videoUrl} muted playsInline /> : <span>{c.initials}</span>}</div>
+                  <div><strong>{c.caption}</strong><small>{c.tags}</small><button className="creator-post-open" onClick={() => { setViewedCreator(null); setActiveTab("For You"); }}>Return to feed</button></div>
+                </article>
+              ))}
+            </div>
+          </div>) : (showProfile && signedIn) ? (<div className="profile-page">
             <div className="profile-topline"><div><span className="eyebrow">YOUR TIVVA ACCOUNT</span><h1>Your profile.</h1><p className="profile-email">{profileEmail || "Signed-in account"}</p></div><button className="following-select" onClick={() => setShowProfile(false)}>Back to feed</button></div>
             <div className="profile-editor">
               <div className="profile-avatar-preview">{profilePhotoUrl ? <img src={profilePhotoUrl} alt="Your profile" /> : <UserRound size={34} />}</div>
@@ -544,7 +567,7 @@ export default function HomePage() {
                 <button className="sound-toggle" aria-label={muted ? "Unmute preview" : "Mute preview"} onClick={() => setMuted(!muted)}>{muted ? <VolumeX size={17}/> : <Volume2 size={17}/>}</button></>}
               </div>
               <div className="video-details">
-                <div className="creator-row"><div className="avatar">{clip.initials}</div><div className="creator-meta"><strong>{clip.name}</strong><span>@{clip.creator}</span></div><button className={following.includes(clip.creator) ? "follow-button is-following" : "follow-button"} onClick={() => void toggleFollow(clip)}>{following.includes(clip.creator) ? "Following" : "Follow"}</button></div>
+                <div className="creator-row"><div className="avatar">{clip.initials}</div><button className="creator-meta creator-meta-clickable" onClick={() => setViewedCreator(clip)} aria-label={`Open ${clip.name} profile}><strong>{clip.name}</strong><span>@{clip.creator}</span></button><button className={following.includes(clip.creator) ? "follow-button is-following" : "follow-button"} onClick={() => void toggleFollow(clip)}>{following.includes(clip.creator) ? "Following" : "Follow"}</button></div>
                 <p className="caption">{clip.caption}</p><p className="hashtags">{clip.tags}</p>
                 <div className="sound-line">♫ {clip.sound}</div>
                 <div className="engagement">
