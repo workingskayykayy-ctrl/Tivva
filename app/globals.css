@@ -107,3 +107,38 @@ body{background:#fff!important;color:#24105f!important}
 .end-feed{color:#756b91!important}
 .end-feed span{background:#e4daf8!important}
 @media(max-width:760px){.sidebar{background:#fff!important;border-color:#e4daf8!important}}
+
+
+/* Tivva poster-matched palette: purple, violet, lavender and white only */
+:root{
+  --bg:#ffffff;
+  --panel:#ffffff;
+  --panel2:#f5f0ff;
+  --line:#e5d9ff;
+  --muted:#74658f;
+  --text:#24105f;
+  --pink:#7600ed;
+  --violet:#a000ff;
+  --mint:#7600ed;
+  --tivva-purple:#7600ed;
+  --tivva-violet:#a000ff;
+  --tivva-lavender:#f5f0ff;
+  --tivva-ink:#24105f;
+}
+body,html,.app-shell{background:#fff!important;color:#24105f!important}
+.topbar,.mobile-bottom,.sidebar{background:#fff!important;border-color:#e5d9ff!important}
+.brand,.brand i,.modal-brand{color:#24105f!important}
+.brand-mark,.welcome-orb{background:linear-gradient(135deg,#7600ed,#a000ff)!important;color:#fff!important}
+.signup-button,.modal-submit,.profile-save,.welcome-card button{background:linear-gradient(110deg,#7600ed,#a000ff)!important;color:#fff!important}
+.nav-item.active,.notification-refresh,.notification-icon,.notification-icon.like,.notification-icon.comment,.notification-icon.follow,.comment-avatar,.profile-avatar-preview{background:#f0e7ff!important;color:#7600ed!important}
+.nav-item.active,.mobile-bottom .selected,.eyebrow,.hashtags,.active-like,.saved,.safety-note,.notification-unread{color:#7600ed!important}
+.active-tab{border-color:#7600ed!important}
+.outline-signup,.follow-button,.notification-refresh{border-color:#a000ff!important;color:#7600ed!important}
+.search-box,.welcome-card,.video-card,.trending-card,.profile-editor,.notification-item,.auth-modal{background:#fff!important;border-color:#e5d9ff!important}
+.search-box input,.auth-modal input,.profile-editor input,.profile-editor textarea,.video-caption-input,.comment-compose textarea{background:#f5f0ff!important;color:#24105f!important;border-color:#e5d9ff!important}
+.feed-heading h1 span{background:linear-gradient(100deg,#7600ed,#a000ff)!important;background-clip:text!important;-webkit-background-clip:text!important;color:transparent!important}
+.avatar{background:linear-gradient(135deg,#7600ed,#a000ff)!important;color:#fff!important}
+.follow-button.is-following{background:#f5f0ff!important;border-color:#e5d9ff!important;color:#74658f!important}
+.video-file-picker{background:#f5f0ff!important;border-color:#a000ff!important;color:#24105f!important}
+.modal-backdrop{background:rgba(36,16,95,.38)!important}
+.creator-profile-avatar{background:linear-gradient(135deg,#7600ed,#a000ff)!important;color:#fff!important}
