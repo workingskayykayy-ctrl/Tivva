@@ -142,3 +142,5 @@ body,html,.app-shell{background:#fff!important;color:#24105f!important}
 .video-file-picker{background:#f5f0ff!important;border-color:#a000ff!important;color:#24105f!important}
 .modal-backdrop{background:rgba(36,16,95,.38)!important}
 .creator-profile-avatar{background:linear-gradient(135deg,#7600ed,#a000ff)!important;color:#fff!important}
+
+.search-box .search-submit{flex:0 0 auto;border:0;border-radius:8px;padding:8px 13px;background:#a36cff;color:#fff;font:600 12px 'DM Sans';cursor:pointer;white-space:nowrap}.search-box .search-submit:hover{filter:brightness(1.08)}.search-box input::-webkit-search-cancel-button{cursor:pointer}
