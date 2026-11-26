@@ -519,7 +519,7 @@ export default function HomePage() {
     <main className="app-shell">
       <header className="topbar">
         <a className="brand" href="#" aria-label="Tivva home"><span className="brand-mark">t</span><span>tivva</span><i>.</i></a>
-        <div className="search-box"><Search size={17} /><input aria-label="Search Tivva" placeholder="Search creators, videos and hashtags" value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setShowNotifications(false); setShowProfile(false); setViewedCreator(null); }} /></div>
+        <form className="search-box" role="search" onSubmit={(event) => { event.preventDefault(); setSearchQuery(searchQuery.trim()); setShowNotifications(false); setShowProfile(false); setViewedCreator(null); setActiveTab("For You"); }}><Search size={17} /><input aria-label="Search Tivva" type="search" enterKeyHint="search" placeholder="Search creators, videos and hashtags" value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setShowNotifications(false); setShowProfile(false); setViewedCreator(null); }} /><button className="search-submit" type="submit" aria-label="Submit search">Search</button></form>
         <div className="top-actions">
           <button className="upload-button" onClick={() => signedIn ? setShowVideoUpload(true) : setShowLogin(true)}><PlusSquare size={17} /> Upload</button>
           {signedIn ? <span className="login-button" aria-live="polite">Signed in</span> : <><button className="login-button" onClick={() => setShowLogin(true)}>Log in</button><button className="signup-button" onClick={() => setShowSignup(true)}>Sign up</button></>}
