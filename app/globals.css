@@ -31,3 +31,79 @@
 .comment-compose .modal-submit{margin-top:0}
 
 .notifications-page{max-width:720px}.notification-refresh{background:#201a29;border:1px solid #413447;color:#e9d9f4;border-radius:9px;padding:10px 13px;font:600 12px 'DM Sans';cursor:pointer;margin:0 0 15px}.notification-list{display:grid;gap:10px}.notification-item{display:flex;align-items:center;gap:13px;padding:15px;border:1px solid var(--line);background:linear-gradient(145deg,#17151e,#111117);border-radius:13px}.notification-icon{width:40px;height:40px;flex-shrink:0;border-radius:50%;display:grid;place-items:center;background:#30223c;color:#d8a7ed}.notification-icon.like{background:#392130;color:#ff79a7}.notification-icon.comment{background:#242b3d;color:#a6c8ff}.notification-icon.follow{background:#30223c;color:#d8a7ed}.notification-copy{display:grid;gap:4px;flex:1;min-width:0}.notification-copy strong{font-size:12px}.notification-copy span{font-size:12px;color:#c6c2ce;overflow-wrap:anywhere}.notification-copy small{font-size:10px;color:var(--muted)}.notification-unread{width:8px;height:8px;background:#fa6a9b;border-radius:50%;flex-shrink:0}.notifications-empty{min-height:180px;border:1px dashed #383342;border-radius:15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#a39bad;font-size:12px}.notifications-empty strong{color:#e7e2ec;font-size:14px}.notifications-empty span{color:var(--muted)}
+
+
+/* Tivva official purple-and-white brand theme */
+:root{
+  --bg:#ffffff;
+  --panel:#ffffff;
+  --panel2:#f4efff;
+  --line:#e4daf8;
+  --muted:#756b91;
+  --text:#24105f;
+  --pink:#7600ed;
+  --violet:#8d35ff;
+  --mint:#7600ed;
+}
+html,body{background:#fff!important;color:#24105f!important}
+body{background:#fff!important;color:#24105f!important}
+.topbar{background:rgba(255,255,255,.96)!important;border-color:#e4daf8!important}
+.brand{color:#24105f!important}
+.brand-mark,.welcome-orb{background:linear-gradient(135deg,#7600ed,#a45cff)!important;color:#fff!important}
+.brand i{color:#7600ed!important}
+.search-box{background:#f4efff!important;border-color:#e4daf8!important;color:#756b91!important}
+.search-box input{color:#24105f!important}
+.upload-button,.login-button,.following-select{background:#fff!important;border-color:#d9c9f5!important;color:#321078!important}
+.signup-button,.modal-submit,.profile-save{background:linear-gradient(110deg,#7600ed,#a45cff)!important;color:#fff!important}
+.layout{color:#24105f!important}
+.nav-item{color:#62577f!important}
+.nav-item.active{background:#eee5ff!important;color:#6500d7!important}
+.sidebar-divider,.feed-tabs,.engagement{border-color:#e4daf8!important}
+.side-label,.feed-heading h1,.creator-meta strong,.rail-title,.trend strong,.profile-topline h1{color:#24105f!important}
+.side-copy,.side-footer,.side-footer a,.profile-hint,.profile-email{color:#756b91!important}
+.outline-signup,.follow-button{border-color:#8d35ff!important;color:#7600ed!important}
+.eyebrow,.hashtags,.feed-heading h1 span{color:#7600ed!important}
+.feed-heading h1 span{background:linear-gradient(100deg,#7600ed,#a45cff)!important;background-clip:text!important;-webkit-background-clip:text!important;color:transparent!important}
+.tab{color:#756b91!important}
+.active-tab{color:#24105f!important;border-color:#7600ed!important}
+.video-card,.trending-card,.profile-editor,.notification-item{background:#fff!important;border-color:#e4daf8!important;box-shadow:0 5px 22px rgba(75,35,145,.06)!important}
+.creator-meta span,.sound-line,.trend span,.safety-note p,.caption{color:#62577f!important}
+.engage{color:#62577f!important}
+.active-like{color:#7600ed!important}
+.saved{color:#8d35ff!important}
+.welcome-card{background:linear-gradient(145deg,#f4efff,#fff)!important;border-color:#d9c9f5!important}
+.welcome-card h2,.welcome-card p{color:#24105f!important}
+.welcome-card button{background:linear-gradient(100deg,#7600ed,#a45cff)!important;color:#fff!important}
+.trend{border-color:#e4daf8!important}
+.trend small,.trend span{color:#756b91!important}
+.safety-note{color:#7600ed!important}
+.auth-modal{background:#fff!important;border-color:#e4daf8!important;color:#24105f!important}
+.auth-modal h2,.auth-modal label{color:#24105f!important}
+.auth-modal>p,.auth-modal>small{color:#756b91!important}
+.modal-brand{color:#7600ed!important}
+.auth-modal input,.profile-editor input,.profile-editor textarea,.video-caption-input,.comment-compose textarea{background:#f8f5ff!important;border-color:#e0d4f5!important;color:#24105f!important}
+.auth-modal input:focus,.profile-editor input:focus,.profile-editor textarea:focus,.comment-compose textarea:focus{border-color:#8d35ff!important}
+.profile-editor{background:#fff!important}
+.profile-avatar-preview{background:#eee5ff!important;border-color:#d9c9f5!important;color:#5d20a8!important}
+.profile-message{color:#5d20a8!important}
+.notification-refresh{background:#eee5ff!important;border-color:#d9c9f5!important;color:#4d168f!important}
+.notification-icon,.notification-icon.follow{background:#eee5ff!important;color:#7600ed!important}
+.notification-icon.like{background:#eee5ff!important;color:#7600ed!important}
+.notification-icon.comment{background:#eee5ff!important;color:#7600ed!important}
+.notification-copy strong,.notification-copy span{color:#24105f!important}
+.notification-copy small,.notifications-empty{color:#756b91!important}
+.notification-unread{background:#7600ed!important}
+.notifications-empty{border-color:#d9c9f5!important}
+.notifications-empty strong{color:#24105f!important}
+.mobile-bottom{background:rgba(255,255,255,.97)!important;border-color:#e4daf8!important}
+.mobile-bottom button{color:#756b91!important}
+.mobile-bottom .selected{color:#7600ed!important}
+.modal-backdrop{background:rgba(36,16,95,.38)!important}
+.video-file-picker{background:#f4efff!important;border-color:#b99bea!important;color:#4d168f!important}
+.comment-avatar{background:#eee5ff!important;color:#5d20a8!important}
+.comment-item strong,.comment-item p{color:#24105f!important}
+.comments-empty,.comments-video-caption{color:#756b91!important}
+.comment-compose{border-color:#e4daf8!important}
+.end-feed{color:#756b91!important}
+.end-feed span{background:#e4daf8!important}
+@media(max-width:760px){.sidebar{background:#fff!important;border-color:#e4daf8!important}}
