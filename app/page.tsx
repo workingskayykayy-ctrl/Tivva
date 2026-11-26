@@ -64,6 +64,7 @@ const clips: TivvaClip[] = [
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState("For You");
+  const [searchQuery, setSearchQuery] = useState("");
   const [liked, setLiked] = useState<(number | string)[]>([]);
   const [saved, setSaved] = useState<(number | string)[]>([]);
   const [engagementHydrated, setEngagementHydrated] = useState(false);
@@ -518,7 +519,7 @@ export default function HomePage() {
     <main className="app-shell">
       <header className="topbar">
         <a className="brand" href="#" aria-label="Tivva home"><span className="brand-mark">t</span><span>tivva</span><i>.</i></a>
-        <div className="search-box"><Search size={17} /><input aria-label="Search Tivva" placeholder="Search creators, videos and sounds" /></div>
+        <div className="search-box"><Search size={17} /><input aria-label="Search Tivva" placeholder="Search creators, videos and hashtags" value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setShowNotifications(false); setShowProfile(false); setViewedCreator(null); }} /></div>
         <div className="top-actions">
           <button className="upload-button" onClick={() => signedIn ? setShowVideoUpload(true) : setShowLogin(true)}><PlusSquare size={17} /> Upload</button>
           {signedIn ? <span className="login-button" aria-live="polite">Signed in</span> : <><button className="login-button" onClick={() => setShowLogin(true)}>Log in</button><button className="signup-button" onClick={() => setShowSignup(true)}>Sign up</button></>}
@@ -529,8 +530,8 @@ export default function HomePage() {
       <div className="layout">
         <aside className={`sidebar ${menuOpen ? "sidebar-open" : ""}`}>
           <nav className="main-nav">
-            <button className="nav-item active"><Home size={20} /> For You</button>
-            <button className="nav-item"><Compass size={20} /> Discover</button>
+            <button className={activeTab === "For You" ? "nav-item active" : "nav-item"} onClick={() => { setActiveTab("For You"); setSearchQuery(""); }}><Home size={20} /> For You</button>
+            <button className={activeTab === "Discover" ? "nav-item active" : "nav-item"} onClick={() => { setActiveTab("Discover"); setSearchQuery(""); setShowNotifications(false); setShowProfile(false); setViewedCreator(null); setMenuOpen(false); }}><Compass size={20} /> Discover</button>
             <button className="nav-item" onClick={() => signedIn ? setShowVideoUpload(true) : setShowLogin(true)}><PlusSquare size={20} /> Upload video</button>
             <button className="nav-item notifications-nav" onClick={() => { setMenuOpen(false); if (signedIn) { setShowNotifications(true); void loadNotifications(true); } else { setShowLogin(true); } }}><Bell size={20} /> Notifications</button>
             <button className="nav-item" onClick={() => setShowLogin(true)}><MessageCircle size={20} /> Inbox</button>
@@ -591,11 +592,11 @@ export default function HomePage() {
             <button className="following-select" onClick={() => setActiveTab(activeTab === "For You" ? "Following" : "For You")}>{activeTab}<ChevronDown size={15}/></button>
           </div>
           <div className="feed-tabs">
-            {["For You", "Following", "Trending"].map((tab) => <button key={tab} className={activeTab === tab ? "tab active-tab" : "tab"} onClick={() => setActiveTab(tab)}>{tab}</button>)}
+            {["For You", "Following", "Trending", "Discover"].map((tab) => <button key={tab} className={activeTab === tab ? "tab active-tab" : "tab"} onClick={() => setActiveTab(tab)}>{tab}</button>)}
           </div>
           {engagementMessage && <p className="comments-message" role="status">{engagementMessage}</p>}
 
-          {[...uploadedClips, ...clips].filter((clip) => activeTab !== "Following" || following.includes(clip.creator)).map((clip, index) => (
+          {[...uploadedClips, ...clips].filter((clip) => (activeTab !== "Following" || following.includes(clip.creator)) && (activeTab !== "Discover" || Boolean(clip.uploadedBy)) && (!searchQuery.trim() || `${clip.name} ${clip.creator} ${clip.caption} ${clip.tags} ${clip.sound}`.toLowerCase().includes(searchQuery.trim().replace(/^#/, "").toLowerCase()))).map((clip, index) => (
             <article className="video-card" key={clip.id}>
               <div className={`video-stage ${clip.color}`}>
                 {clip.videoUrl ? <video className="uploaded-video" src={clip.videoUrl} controls playsInline /> : <><div className="stage-glow" />
@@ -621,6 +622,7 @@ export default function HomePage() {
               </div>
             </article>
           ))}
+          {![...uploadedClips, ...clips].some((clip) => (activeTab !== "Following" || following.includes(clip.creator)) && (activeTab !== "Discover" || Boolean(clip.uploadedBy)) && (!searchQuery.trim() || `${clip.name} ${clip.creator} ${clip.caption} ${clip.tags} ${clip.sound}`.toLowerCase().includes(searchQuery.trim().replace(/^#/, "").toLowerCase()))) && <div className="notifications-empty"><Search size={26}/><strong>No matches found.</strong><span>Try another creator name, caption or hashtag.</span></div>}
           <div className="end-feed"><span /> YOU&apos;RE RIGHT ON TIME <span /></div></>)}
         </section>
 
@@ -658,7 +660,7 @@ export default function HomePage() {
       {showVideoUpload && <div className="modal-backdrop" onClick={() => { if (!videoUploading) setShowVideoUpload(false); }}><section className="auth-modal video-upload-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={() => { if (!videoUploading) setShowVideoUpload(false); }}><X size={20}/></button><div className="modal-brand"><Film size={26}/></div><span className="eyebrow">SHARE YOUR MOMENT</span><h2>Upload a video.</h2><p>Select a video from your phone gallery and share it with Tivva.</p><label className="video-file-picker"><Upload size={19}/><span>{videoFile ? videoFile.name : "Choose video from gallery"}</span><input type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files?.[0] || null)}/></label>{videoFile && <video className="video-upload-preview" src={URL.createObjectURL(videoFile)} controls playsInline /> }<label>Caption<textarea className="video-caption-input" value={videoCaption} onChange={(e) => setVideoCaption(e.target.value)} maxLength={220} placeholder="What's happening in your video?" rows={3}/></label><small className="upload-limit">Video limit: 50 MB. Please upload a video you own or have permission to share.</small>{videoMessage && <p role="status">{videoMessage}</p>}<button className="modal-submit" disabled={videoUploading} onClick={uploadVideo}>{videoUploading ? "Uploading video..." : "Post video"}</button></section></div>}
       {(showLogin || showSignup) && <div className="modal-backdrop" onClick={() => {setShowLogin(false);setShowSignup(false);}}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={() => {setShowLogin(false);setShowSignup(false);}}><X size={20}/></button><div className="modal-brand">t.</div><span className="eyebrow">YOUR NEXT CHAPTER STARTS HERE</span><h2>{showSignup ? "Join Tivva." : "Welcome back."}</h2><p>{showSignup ? "Create your account and find your people." : "Log in to continue your Tivva journey."}</p><div className="auth-methods"><button type="button" className={authMethod === "email" ? "auth-method active" : "auth-method"} onClick={() => {setAuthMethod("email");setPhoneStep("details");setAuthMessage("");}}>Email</button><button type="button" className={authMethod === "phone" ? "auth-method active" : "auth-method"} onClick={() => {setAuthMethod("phone");setPhoneStep("details");setAuthMessage("");}}>Phone</button></div>{authMethod === "email" ? <label>Email address<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com"/></label> : <><label>Phone number<input type="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+2348012345678"/></label>{showSignup && phoneStep === "code" && <label>SMS verification code<input inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={(event) => setOtp(event.target.value)} placeholder="Enter the code sent to your phone"/></label>}</>}<label>Password<input type="password" autoComplete={showSignup ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters"/></label>{authMessage && <p role="status" aria-live="polite">{authMessage}</p>}<button className="modal-submit" disabled={authBusy} onClick={handleAuth}>{authBusy ? "Please wait..." : showSignup && authMethod === "phone" && phoneStep === "details" ? "Send verification code" : showSignup ? authMethod === "phone" ? "Verify & create account" : "Create account" : "Log in"}</button><p className="modal-switch">{showSignup ? "Already on Tivva?" : "New to Tivva?"} <button onClick={() => {setShowSignup(!showSignup);setShowLogin(!showLogin);}}>{showSignup ? "Log in" : "Create an account"}</button></p><small>Keep your password private. Tivva uses secure Supabase authentication.</small></section></div>}
 
-      <nav className="mobile-bottom"><button className="selected"><Home size={20}/>Home</button><button><Compass size={20}/>Discover</button><button onClick={() => signedIn ? setShowVideoUpload(true) : setShowLogin(true)}><PlusSquare size={20}/>Upload</button><button onClick={() => { if (signedIn) { setShowNotifications(true); void loadNotifications(true); } else setShowLogin(true); }}><Bell size={20}/>Alerts</button><button onClick={() => signedIn ? setShowProfile(true) : setShowLogin(true)}><UserRound size={20}/>Profile</button></nav>
+      <nav className="mobile-bottom"><button className={activeTab === "For You" ? "selected" : ""} onClick={() => { setActiveTab("For You"); setSearchQuery(""); }}><Home size={20}/>Home</button><button className={activeTab === "Discover" ? "selected" : ""} onClick={() => { setActiveTab("Discover"); setSearchQuery(""); setShowNotifications(false); setShowProfile(false); setViewedCreator(null); }}><Compass size={20}/>Discover</button><button onClick={() => signedIn ? setShowVideoUpload(true) : setShowLogin(true)}><PlusSquare size={20}/>Upload</button><button onClick={() => { if (signedIn) { setShowNotifications(true); void loadNotifications(true); } else setShowLogin(true); }}><Bell size={20}/>Alerts</button><button onClick={() => signedIn ? setShowProfile(true) : setShowLogin(true)}><UserRound size={20}/>Profile</button></nav>
     </main>
   );
 }
