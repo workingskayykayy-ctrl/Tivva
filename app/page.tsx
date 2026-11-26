@@ -481,7 +481,7 @@ export default function HomePage() {
     if (error) { setCommentMessage(error.message); return; }
     setCommentsList((prev) => [...prev, data]);
     setCommentDraft("");
-    if (isUploadedPost && commentsClip.uploadedBy) await createNotification(commentsClip.uploadedBy, "comment", `commented: ${text.slice(0, 120)}`, commentsClip.id);
+    if (isUploadedPost && commentsClip.uploadedBy) await createNotification(commentsClip.uploadedBy, "comment", `commented: ${text.slice(0, 120)}`, String(commentsClip.id));
   };
 
   const toggleEngagement = (kind: "like" | "save", id: number | string) => {
