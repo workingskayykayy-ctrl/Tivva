@@ -111,6 +111,7 @@ export default function HomePage() {
   const [notifications, setNotifications] = useState<{id:string; actor_name:string; type:string; message:string; video_id:string|null; created_at:string; read_at:string|null}[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState("");
+  const [trendCategory, setTrendCategory] = useState("All");
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -515,6 +516,24 @@ export default function HomePage() {
 
 
 
+  const trendCategories = ["All", "Entertainment", "Food", "Travel", "Music", "Fashion", "Challenges"];
+  const filteredClips = [...uploadedClips, ...clips].filter((clip) => {
+    const searchable = `${clip.name} ${clip.creator} ${clip.caption} ${clip.tags} ${clip.sound}`.toLowerCase();
+    const matchesSearch = !searchQuery.trim() || searchable.includes(searchQuery.trim().replace(/^#/, "").toLowerCase());
+    const matchesFollowing = activeTab !== "Following" || following.includes(clip.creator);
+    const matchesDiscover = activeTab !== "Discover" || Boolean(clip.uploadedBy);
+    const categoryTerms: Record<string, string[]> = {
+      Entertainment: ["fun", "comedy", "entertain", "moment", "daily"],
+      Food: ["food", "taste", "street", "flavour", "cook", "recipe"],
+      Travel: ["travel", "trip", "place", "journey", "explore"],
+      Music: ["music", "sound", "song", "dance"],
+      Fashion: ["fashion", "style", "outfit", "beauty"],
+      Challenges: ["challenge", "trend", "tivva"]
+    };
+    const matchesCategory = activeTab !== "Trending" || trendCategory === "All" || (categoryTerms[trendCategory] || []).some((term) => searchable.includes(term));
+    return matchesSearch && matchesFollowing && matchesDiscover && matchesCategory;
+  });
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -594,9 +613,16 @@ export default function HomePage() {
           <div className="feed-tabs">
             {["For You", "Following", "Trending", "Discover"].map((tab) => <button key={tab} className={activeTab === tab ? "tab active-tab" : "tab"} onClick={() => setActiveTab(tab)}>{tab}</button>)}
           </div>
+          {activeTab === "Trending" && <section className="trending-hub" aria-label="Trending topics">
+            <div className="trending-hub-heading"><span className="eyebrow"><Sparkles size={13}/> TIVVA TREND RADAR</span><h2>Trending <span>now.</span></h2><p>Explore topics and videos shared by the Tivva community. Sponsored trends will be clearly labelled.</p></div>
+            <div className="trend-category-list" aria-label="Filter trending topics">
+              {trendCategories.map((category) => <button key={category} className={trendCategory === category ? "trend-category active" : "trend-category"} onClick={() => setTrendCategory(category)}>{category}</button>)}
+            </div>
+            <div className="trend-disclosure"><ShieldCheck size={15}/><span>We feature content shared on Tivva or submitted with permission. External media will only appear through authorized embeds or licensed use.</span></div>
+          </section>}
           {engagementMessage && <p className="comments-message" role="status">{engagementMessage}</p>}
 
-          {[...uploadedClips, ...clips].filter((clip) => (activeTab !== "Following" || following.includes(clip.creator)) && (activeTab !== "Discover" || Boolean(clip.uploadedBy)) && (!searchQuery.trim() || `${clip.name} ${clip.creator} ${clip.caption} ${clip.tags} ${clip.sound}`.toLowerCase().includes(searchQuery.trim().replace(/^#/, "").toLowerCase()))).map((clip, index) => (
+          {filteredClips.map((clip, index) => (
             <article className="video-card" key={clip.id}>
               <div className={`video-stage ${clip.color}`}>
                 {clip.videoUrl ? <video className="uploaded-video" src={clip.videoUrl} controls playsInline /> : <><div className="stage-glow" />
@@ -622,7 +648,7 @@ export default function HomePage() {
               </div>
             </article>
           ))}
-          {![...uploadedClips, ...clips].some((clip) => (activeTab !== "Following" || following.includes(clip.creator)) && (activeTab !== "Discover" || Boolean(clip.uploadedBy)) && (!searchQuery.trim() || `${clip.name} ${clip.creator} ${clip.caption} ${clip.tags} ${clip.sound}`.toLowerCase().includes(searchQuery.trim().replace(/^#/, "").toLowerCase()))) && <div className="notifications-empty"><Search size={26}/><strong>No matches found.</strong><span>Try another creator name, caption or hashtag.</span></div>}
+          {filteredClips.length === 0 && <div className="notifications-empty"><Search size={26}/><strong>{activeTab === "Trending" ? "No videos in this trend yet." : "No matches found."}</strong><span>{activeTab === "Trending" ? "Be among the first to share something in this category." : "Try another creator name, caption or hashtag."}</span></div>}
           <div className="end-feed"><span /> YOU&apos;RE RIGHT ON TIME <span /></div></>)}
         </section>
 
