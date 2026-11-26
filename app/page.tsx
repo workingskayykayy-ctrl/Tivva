@@ -112,6 +112,14 @@ export default function HomePage() {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState("");
   const [trendCategory, setTrendCategory] = useState("All");
+  const [showTrendSubmit, setShowTrendSubmit] = useState(false);
+  const [trendSubmissionType, setTrendSubmissionType] = useState<"link_suggestion" | "licensed_content">("link_suggestion");
+  const [trendTitle, setTrendTitle] = useState("");
+  const [trendSourceUrl, setTrendSourceUrl] = useState("");
+  const [trendDescription, setTrendDescription] = useState("");
+  const [trendPermission, setTrendPermission] = useState(false);
+  const [trendSubmitting, setTrendSubmitting] = useState(false);
+  const [trendSubmitMessage, setTrendSubmitMessage] = useState("");
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -516,6 +524,44 @@ export default function HomePage() {
 
 
 
+  const submitTrend = async () => {
+    const title = trendTitle.trim();
+    const sourceUrl = trendSourceUrl.trim();
+    if (!signedIn) { setShowTrendSubmit(false); setShowLogin(true); return; }
+    if (!title || !sourceUrl) { setTrendSubmitMessage("Please add a trend title and source link."); return; }
+    let parsedUrl: URL;
+    try { parsedUrl = new URL(sourceUrl); } catch { setTrendSubmitMessage("Enter a valid link beginning with https://"); return; }
+    if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") { setTrendSubmitMessage("Only web links are accepted."); return; }
+    if (trendSubmissionType === "licensed_content" && !trendPermission) { setTrendSubmitMessage("Please confirm that you own this content or have permission for Tivva to feature it."); return; }
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) { setTrendSubmitMessage("Tivva is not connected right now. Please try again."); return; }
+    setTrendSubmitting(true);
+    setTrendSubmitMessage("");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setTrendSubmitting(false); setShowTrendSubmit(false); setShowLogin(true); return; }
+    const { error } = await supabase.from("trend_submissions").insert({
+      user_id: user.id,
+      submission_type: trendSubmissionType,
+      title,
+      source_url: sourceUrl,
+      description: trendDescription.trim(),
+      rights_confirmed: trendSubmissionType === "licensed_content" ? trendPermission : false,
+      status: "pending"
+    });
+    setTrendSubmitting(false);
+    if (error) {
+      console.error("Tivva trend submission:", error.message);
+      setTrendSubmitMessage("We couldn't send this suggestion. Please check the database setup and try again.");
+      return;
+    }
+    setTrendSubmitMessage("Thanks! Your trend has been sent for review.");
+    setTrendTitle("");
+    setTrendSourceUrl("");
+    setTrendDescription("");
+    setTrendPermission(false);
+    setTrendSubmissionType("link_suggestion");
+  };
+
   const trendCategories = ["All", "Entertainment", "Food", "Travel", "Music", "Fashion", "Challenges"];
   const filteredClips = [...uploadedClips, ...clips].filter((clip) => {
     const searchable = `${clip.name} ${clip.creator} ${clip.caption} ${clip.tags} ${clip.sound}`.toLowerCase();
@@ -619,6 +665,7 @@ export default function HomePage() {
               {trendCategories.map((category) => <button key={category} className={trendCategory === category ? "trend-category active" : "trend-category"} onClick={() => setTrendCategory(category)}>{category}</button>)}
             </div>
             <div className="trend-disclosure"><ShieldCheck size={15}/><span>We feature content shared on Tivva or submitted with permission. External media will only appear through authorized embeds or licensed use.</span></div>
+            <button className="trend-suggest-button" onClick={() => { if (signedIn) { setTrendSubmitMessage(""); setShowTrendSubmit(true); } else setShowLogin(true); }}>Suggest a trend <span>＋</span></button>
           </section>}
           {engagementMessage && <p className="comments-message" role="status">{engagementMessage}</p>}
 
@@ -683,6 +730,7 @@ export default function HomePage() {
           </section>
         </div>
       )}
+      {showTrendSubmit && <div className="modal-backdrop" onClick={() => { if (!trendSubmitting) setShowTrendSubmit(false); }}><section className="auth-modal trend-submit-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" aria-label="Close trend submission" onClick={() => { if (!trendSubmitting) setShowTrendSubmit(false); }}><X size={20}/></button><div className="modal-brand"><Sparkles size={25}/></div><span className="eyebrow">TIVVA TREND RADAR</span><h2>Suggest a trend.</h2><p>Share a link for our team to review. A link suggestion does not give Tivva permission to copy, host, or monetize someone else&apos;s content.</p><div className="trend-submission-options"><button type="button" className={trendSubmissionType === "link_suggestion" ? "trend-submission-option selected" : "trend-submission-option"} onClick={() => { setTrendSubmissionType("link_suggestion"); setTrendPermission(false); setTrendSubmitMessage(""); }}><strong>Suggest a trend link</strong><span>For discovery review only</span></button><button type="button" className={trendSubmissionType === "licensed_content" ? "trend-submission-option selected" : "trend-submission-option"} onClick={() => { setTrendSubmissionType("licensed_content"); setTrendSubmitMessage(""); }}><strong>Submit content to feature</strong><span>I own it or have permission</span></button></div><label>Trend title<input value={trendTitle} onChange={(event) => setTrendTitle(event.target.value)} maxLength={100} placeholder="e.g. A popular dance challenge"/></label><label>Original source link<input type="url" value={trendSourceUrl} onChange={(event) => setTrendSourceUrl(event.target.value)} placeholder="https://..."/></label><label>Why is it trending? (optional)<textarea className="video-caption-input" value={trendDescription} onChange={(event) => setTrendDescription(event.target.value)} maxLength={500} rows={3} placeholder="Tell us a little about this trend."/></label>{trendSubmissionType === "link_suggestion" ? <p className="trend-rights-note"><ShieldCheck size={15}/> Tivva will review the link only. We will not re-upload or monetize the original media without the necessary rights.</p> : <label className="trend-rights-check"><input type="checkbox" checked={trendPermission} onChange={(event) => setTrendPermission(event.target.checked)}/><span>I confirm that I own this content or have permission for Tivva to feature and use it as agreed.</span></label>}{trendSubmitMessage && <p className="trend-submit-message" role="status">{trendSubmitMessage}</p>}<button className="modal-submit" disabled={trendSubmitting} onClick={() => void submitTrend()}>{trendSubmitting ? "Sending..." : "Send for review"}</button><small>All submissions are reviewed before appearing on Tivva.</small></section></div>}
       {showVideoUpload && <div className="modal-backdrop" onClick={() => { if (!videoUploading) setShowVideoUpload(false); }}><section className="auth-modal video-upload-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={() => { if (!videoUploading) setShowVideoUpload(false); }}><X size={20}/></button><div className="modal-brand"><Film size={26}/></div><span className="eyebrow">SHARE YOUR MOMENT</span><h2>Upload a video.</h2><p>Select a video from your phone gallery and share it with Tivva.</p><label className="video-file-picker"><Upload size={19}/><span>{videoFile ? videoFile.name : "Choose video from gallery"}</span><input type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files?.[0] || null)}/></label>{videoFile && <video className="video-upload-preview" src={URL.createObjectURL(videoFile)} controls playsInline /> }<label>Caption<textarea className="video-caption-input" value={videoCaption} onChange={(e) => setVideoCaption(e.target.value)} maxLength={220} placeholder="What's happening in your video?" rows={3}/></label><small className="upload-limit">Video limit: 50 MB. Please upload a video you own or have permission to share.</small>{videoMessage && <p role="status">{videoMessage}</p>}<button className="modal-submit" disabled={videoUploading} onClick={uploadVideo}>{videoUploading ? "Uploading video..." : "Post video"}</button></section></div>}
       {(showLogin || showSignup) && <div className="modal-backdrop" onClick={() => {setShowLogin(false);setShowSignup(false);}}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={() => {setShowLogin(false);setShowSignup(false);}}><X size={20}/></button><div className="modal-brand">t.</div><span className="eyebrow">YOUR NEXT CHAPTER STARTS HERE</span><h2>{showSignup ? "Join Tivva." : "Welcome back."}</h2><p>{showSignup ? "Create your account and find your people." : "Log in to continue your Tivva journey."}</p><div className="auth-methods"><button type="button" className={authMethod === "email" ? "auth-method active" : "auth-method"} onClick={() => {setAuthMethod("email");setPhoneStep("details");setAuthMessage("");}}>Email</button><button type="button" className={authMethod === "phone" ? "auth-method active" : "auth-method"} onClick={() => {setAuthMethod("phone");setPhoneStep("details");setAuthMessage("");}}>Phone</button></div>{authMethod === "email" ? <label>Email address<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com"/></label> : <><label>Phone number<input type="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+2348012345678"/></label>{showSignup && phoneStep === "code" && <label>SMS verification code<input inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={(event) => setOtp(event.target.value)} placeholder="Enter the code sent to your phone"/></label>}</>}<label>Password<input type="password" autoComplete={showSignup ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters"/></label>{authMessage && <p role="status" aria-live="polite">{authMessage}</p>}<button className="modal-submit" disabled={authBusy} onClick={handleAuth}>{authBusy ? "Please wait..." : showSignup && authMethod === "phone" && phoneStep === "details" ? "Send verification code" : showSignup ? authMethod === "phone" ? "Verify & create account" : "Create account" : "Log in"}</button><p className="modal-switch">{showSignup ? "Already on Tivva?" : "New to Tivva?"} <button onClick={() => {setShowSignup(!showSignup);setShowLogin(!showLogin);}}>{showSignup ? "Log in" : "Create an account"}</button></p><small>Keep your password private. Tivva uses secure Supabase authentication.</small></section></div>}
 
